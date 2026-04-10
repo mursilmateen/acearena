@@ -244,31 +244,6 @@ export const deleteAsset = asyncHandler(async (req: AuthenticatedRequest, res: R
   });
 });
 
-    // Delete temp file
-    fs.unlinkSync(req.file.path);
-
-    // Update asset
-    asset.thumbnail = upload.url;
-    await asset.save();
-
-    res.status(200).json({
-      success: true,
-      data: asset,
-      message: "Thumbnail uploaded successfully",
-    });
-  }
-);
-
-export const getAllAssets = asyncHandler(
-  async (req: AuthenticatedRequest, res: Response) => {
-    const { type, tags, minPrice, maxPrice, search } = req.query;
-
-    let filter: any = {};
-
-    if (type) {
-      filter.type = type;
-    }
-
     if (tags) {
       filter.tags = { $in: (tags as string).split(",") };
     }
