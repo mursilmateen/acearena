@@ -244,6 +244,16 @@ export const deleteAsset = asyncHandler(async (req: AuthenticatedRequest, res: R
   });
 });
 
+export const getAllAssets = asyncHandler(
+  async (req: AuthenticatedRequest, res: Response) => {
+    const { type, tags, minPrice, maxPrice, search } = req.query;
+
+    let filter: any = {};
+
+    if (type) {
+      filter.type = type;
+    }
+
     if (tags) {
       filter.tags = { $in: (tags as string).split(",") };
     }
