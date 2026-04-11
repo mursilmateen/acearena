@@ -17,12 +17,17 @@ import postRoutes from "./routes/postRoutes";
 dotenv.config();
 
 const app: Application = express();
-const PORT = Number(process.env.PORT) || 5000;
 const NODE_ENV = process.env.NODE_ENV || "development";
 const isProduction = NODE_ENV === "production";
+const PORT = Number(process.env.PORT) || (isProduction ? 8080 : 5000);
 
-const requiredEnvVars = ["MONGO_URI", "JWT_SECRET", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+const hasMongoUri = Boolean(process.env.MONGO_URI?.trim() || process.env.MONGODB_URI?.trim());
+const requiredEnvVars = ["JWT_SECRET", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key]?.trim());
+
+if (!hasMongoUri) {
+  missingEnvVars.unshift("MONGO_URI|MONGODB_URI");
+}
 
 if (isProduction && missingEnvVars.length > 0) {
   console.error(`❌ Missing required environment variables: ${missingEnvVars.join(", ")}`);
