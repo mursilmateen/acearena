@@ -11,8 +11,12 @@ interface GameCardProps {
 }
 
 export default function GameCard({ game }: GameCardProps) {
+  const gameId = game.id ?? game._id;
+  const gameHref = gameId ? `/game/${gameId}` : '/games';
+  const priceLabel = game.isFree ? 'Free' : typeof game.price === 'number' ? `$${game.price.toFixed(2)}` : 'N/A';
+
   return (
-    <Link href={`/game/${game.id}`}>
+    <Link href={gameHref}>
       <div className="group cursor-pointer">
         {/* Thumbnail - Square Container with Action Buttons */}
         <div className="relative overflow-hidden bg-gray-100 rounded-lg mb-4 aspect-square">
@@ -22,16 +26,18 @@ export default function GameCard({ game }: GameCardProps) {
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 block max-w-full"
           />
           {/* Action Buttons - Top Right */}
-          <div className="absolute top-3 right-3 z-10 flex gap-2" onClick={(e) => e.preventDefault()}>
-            {/* Favorite Button */}
-            <div className="bg-white rounded-full p-2 shadow-md hover:shadow-lg transition-shadow">
-              <FavoriteButton gameId={game.id} gameName={game.title} size="md" />
+          {gameId && (
+            <div className="absolute top-3 right-3 z-10 flex gap-2" onClick={(e) => e.preventDefault()}>
+              {/* Favorite Button */}
+              <div className="bg-white rounded-full p-2 shadow-md hover:shadow-lg transition-shadow">
+                <FavoriteButton gameId={gameId} gameName={game.title} size="md" />
+              </div>
+              {/* Comparison Button */}
+              <div className="bg-white rounded-full p-2 shadow-md hover:shadow-lg transition-shadow">
+                <ComparisonButton gameId={gameId} gameName={game.title} size="md" />
+              </div>
             </div>
-            {/* Comparison Button */}
-            <div className="bg-white rounded-full p-2 shadow-md hover:shadow-lg transition-shadow">
-              <ComparisonButton gameId={game.id} gameName={game.title} size="md" />
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Content */}
@@ -48,7 +54,7 @@ export default function GameCard({ game }: GameCardProps) {
 
           {/* Tags */}
           <div className="flex flex-wrap gap-1 pt-1">
-            {game.tags.slice(0, 2).map((tag) => (
+            {game.tags.slice(0, 2).map((tag: string) => (
               <span key={tag} className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-sm">
                 {tag}
               </span>
@@ -62,7 +68,7 @@ export default function GameCard({ game }: GameCardProps) {
           <div className="pt-2 border-t border-gray-200 flex justify-between items-center text-xs">
             <span className="text-gray-600">{game.author}</span>
             <span className="font-medium text-black">
-              {game.isFree ? 'Free' : `$${game.price.toFixed(2)}`}
+              {priceLabel}
             </span>
           </div>
         </div>

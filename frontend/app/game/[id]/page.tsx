@@ -502,7 +502,7 @@ export default function GameDetailPage() {
                     </h3>
                     <p className="text-xs text-gray-500 truncate">{relatedGame.author}</p>
                     <div className="flex gap-1 mt-2 flex-wrap">
-                      {relatedGame.tags.slice(0, 2).map((tag) => (
+                      {relatedGame.tags.slice(0, 2).map((tag: string) => (
                         <span
                           key={tag}
                           className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"

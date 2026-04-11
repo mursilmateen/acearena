@@ -160,5 +160,5 @@ export const MOCK_GAMES: Game[] = [
 
 export const FEATURED_GAMES = MOCK_GAMES.slice(0, 3);
 export const LATEST_GAMES = MOCK_GAMES.sort(
-  (a, b) => b.createdAt.getTime() - a.createdAt.getTime()
+  (a, b) => (b.createdAt?.getTime() ?? 0) - (a.createdAt?.getTime() ?? 0)
 );

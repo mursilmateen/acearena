@@ -144,35 +144,24 @@ export default function CollectionsPage() {
                     </p>
                   )}
                 </div>
-                            <img
-                              src={game.thumbnail}
-                              alt={game.title}
-                              className="w-full h-full object-cover"
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Actions */}
-                  <div className="p-4 bg-gray-50 border-t border-gray-200 flex gap-2">
-                    <button
-                      onClick={() => router.push(`/dashboard/collections/${collection.id}`)}
-                      className="flex-1 px-3 py-2 bg-black text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors"
-                    >
-                      View
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCollection(collection.id)}
-                      className="px-3 py-2 border border-red-300 text-red-600 hover:bg-red-50 rounded transition-colors text-sm font-medium"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                {/* Actions */}
+                <div className="p-4 bg-gray-50 border-t border-gray-200 flex gap-2">
+                  <button
+                    onClick={() => router.push(`/dashboard/collections/${collection.id}`)}
+                    className="flex-1 px-3 py-2 bg-black text-white text-sm font-medium rounded hover:bg-gray-800 transition-colors"
+                  >
+                    View
+                  </button>
+                  <button
+                    onClick={() => handleDeleteCollection(collection.id)}
+                    className="px-3 py-2 border border-red-300 text-red-600 hover:bg-red-50 rounded transition-colors text-sm font-medium"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         )}
       </div>

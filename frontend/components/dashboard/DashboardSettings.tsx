@@ -129,18 +129,20 @@ export default function DashboardSettings() {
           <div className="py-3 border-b border-gray-200">
             <p className="text-sm text-gray-600">Member Since</p>
             <p className="text-base font-semibold text-black mt-1">
-              {USER_PROFILE.joinedDate.toLocaleDateString('en-US', {
-                year: 'numeric',
-                month: 'long',
-                day: 'numeric',
-              })}
+              {user.joinedDate
+                ? new Date(user.joinedDate).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })
+                : 'Not available'}
             </p>
           </div>
 
           <div className="py-3">
             <p className="text-sm text-gray-600">Bio</p>
             <p className="text-base text-gray-700 mt-1">
-              {USER_PROFILE.bio}
+              {user.bio?.trim() ? user.bio : 'No bio added yet'}
             </p>
           </div>
         </div>

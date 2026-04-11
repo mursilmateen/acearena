@@ -5,10 +5,19 @@ import { useAppStore } from '@/store/appStore';
 import { useAssets } from '@/hooks/useBackendApi';
 import { Trash2, Edit, Loader } from 'lucide-react';
 
+type DashboardAsset = {
+  _id: string;
+  title: string;
+  thumbnail?: string;
+  createdAt?: string | Date;
+  type?: string;
+  price?: number;
+};
+
 export default function DashboardMyAssets() {
   const { user } = useAppStore();
   const { getUserAssets, deleteAsset, loading } = useAssets();
-  const [assets, setAssets] = useState([]);
+  const [assets, setAssets] = useState<DashboardAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
@@ -25,7 +34,7 @@ export default function DashboardMyAssets() {
   const loadAssets = async () => {
     try {
       const data = await getUserAssets();
-      setAssets(data || []);
+      setAssets(Array.isArray(data) ? (data as DashboardAsset[]) : []);
     } catch (error) {
       setAssets([]);
     } finally {
@@ -104,7 +113,7 @@ export default function DashboardMyAssets() {
       {/* Assets List */}
       {assets.length > 0 ? (
         <div className="space-y-4">
-          {assets.map((asset: any) => (
+          {assets.map((asset) => (
             <div
               key={asset._id}
               className="bg-white p-4 rounded-lg border border-gray-200 flex items-center gap-4 hover:border-gray-300 transition-all duration-200"
@@ -124,13 +133,13 @@ export default function DashboardMyAssets() {
                   {asset.title}
                 </h3>
                 <p className="text-xs text-gray-600 mb-2">
-                  Created: {new Date(asset.createdAt).toLocaleDateString()}
+                  Created: {asset.createdAt ? new Date(asset.createdAt).toLocaleDateString() : 'Unknown'}
                 </p>
                 <div className="flex gap-3">
                   <span className="text-xs font-medium text-black capitalize">
                     {asset.type || 'Asset'}
                   </span>
-                  {asset.price > 0 && (
+                  {(asset.price ?? 0) > 0 && (
                     <span className="text-xs font-medium text-black">
                       ${asset.price}
                     </span>

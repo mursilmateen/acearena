@@ -5,10 +5,18 @@ import { useAppStore } from '@/store/appStore';
 import { useGames } from '@/hooks/useBackendApi';
 import { Trash2, Edit, Loader } from 'lucide-react';
 
+type DashboardGame = {
+  _id: string;
+  title: string;
+  thumbnail?: string;
+  createdAt?: string | Date;
+  price?: number;
+};
+
 export default function DashboardMyGames() {
   const { user } = useAppStore();
   const { getUserGames, deleteGame, loading } = useGames();
-  const [games, setGames] = useState([]);
+  const [games, setGames] = useState<DashboardGame[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
@@ -25,7 +33,7 @@ export default function DashboardMyGames() {
   const loadGames = async () => {
     try {
       const data = await getUserGames();
-      setGames(data || []);
+      setGames(Array.isArray(data) ? (data as DashboardGame[]) : []);
     } catch (error) {
       setGames([]);
     } finally {
@@ -104,7 +112,7 @@ export default function DashboardMyGames() {
       {/* Games List */}
       {games.length > 0 ? (
         <div className="space-y-4">
-          {games.map((game: any) => (
+          {games.map((game) => (
             <div
               key={game._id}
               className="bg-white p-4 rounded-lg border border-gray-200 flex items-center gap-4 hover:border-gray-300 transition-colors"
@@ -124,13 +132,13 @@ export default function DashboardMyGames() {
                   {game.title}
                 </h3>
                 <p className="text-sm text-gray-600 mb-2">
-                  Created: {new Date(game.createdAt).toLocaleDateString()}
+                  Created: {game.createdAt ? new Date(game.createdAt).toLocaleDateString() : 'Unknown'}
                 </p>
                 <div>
                   <span className="text-xs font-semibold text-gray-600 capitalize">
-                    {game.price > 0 ? 'Paid' : 'Free'}
+                    {(game.price ?? 0) > 0 ? 'Paid' : 'Free'}
                   </span>
-                  {game.price > 0 && (
+                  {(game.price ?? 0) > 0 && (
                     <span className="text-xs font-semibold text-gray-600 ml-4">
                       ${game.price}
                     </span>

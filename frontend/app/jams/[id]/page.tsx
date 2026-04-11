@@ -111,45 +111,21 @@ export default function JamDetailPage() {
               <h2 className="text-xl font-semibold text-black mb-4">About</h2>
               <p className="text-gray-600 leading-relaxed">{jam.description || 'No description provided'}</p>
             </section>
-          </div>
-        </div>
-      </div>
-    </div>
-                            <h3 className="font-semibold text-black mb-1">{submission.gameTitle}</h3>
-                            <p className="text-sm text-gray-600 mb-2">by {submission.developer}</p>
-                          </div>
-                          {submission.rating && (
-                            <div className="text-sm text-gray-600">
-                              Rating: <span className="font-semibold">{submission.rating}/5</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Play Button */}
-                        <Button className="bg-black hover:bg-gray-800 text-white h-fit px-4 py-2 text-sm whitespace-nowrap">
-                          <Play className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
 
             {/* Participants */}
             <section>
               <h2 className="text-xl font-semibold text-black mb-4">Participants</h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {jam.participants.map((participant) => (
+                {(jam.participants || []).map((participant: any) => (
                   <div
-                    key={participant.id}
+                    key={participant.id || participant._id || participant.username}
                     className="border border-gray-200 rounded-lg p-4 text-center hover:border-gray-300 transition-colors"
                   >
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center mx-auto mb-2 text-white font-bold">
-                      {participant.avatar || participant.username.charAt(0)}
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center mx-auto mb-2 text-white font-bold">
+                      {participant.avatar || participant.username?.charAt(0) || 'U'}
                     </div>
-                    <h3 className="font-semibold text-sm text-black">{participant.username}</h3>
-                    <p className="text-xs text-gray-500 mt-1 capitalize">{participant.role}</p>
+                    <h3 className="font-semibold text-sm text-black">{participant.username || 'User'}</h3>
+                    <p className="text-xs text-gray-500 mt-1 capitalize">{participant.role || 'participant'}</p>
                   </div>
                 ))}
               </div>
@@ -158,37 +134,23 @@ export default function JamDetailPage() {
 
           {/* Right Sidebar */}
           <div>
-            {/* Submission Card */}
             <div className="sticky top-24 border border-gray-200 rounded-lg p-6 bg-gray-50">
               <h3 className="font-semibold text-black mb-4">Ready to participate?</h3>
 
-              {jam.status === 'ended' ? (
-                <Button disabled className="w-full bg-gray-300 text-gray-600 cursor-not-allowed py-2">
-                  Jam Ended
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600">
+                  Build your game around this jam's theme and submit it before the deadline.
+                </p>
+                <Button className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2">
+                  Submit Your Game
                 </Button>
-              ) : (
-                <div className="space-y-3">
-                  <p className="text-sm text-gray-600">
-                    Create a game based on the theme and submit before the deadline.
-                  </p>
-                  <Button className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2">
-                    Submit Your Game
-                  </Button>
-                  <Button className="w-full border border-gray-300 bg-white hover:bg-gray-50 text-black font-semibold py-2">
-                    View Submission Guide
-                  </Button>
-                </div>
-              )}
+              </div>
 
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Participants</span>
-                    <span className="font-semibold text-black">{jam.participants.length}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Submissions</span>
-                    <span className="font-semibold text-black">{jam.submissions?.length || 0}</span>
+                    <span className="font-semibold text-black">{(jam.participants || []).length}</span>
                   </div>
                 </div>
               </div>
