@@ -168,7 +168,9 @@ CLOUDINARY_API_KEY=...
 CLOUDINARY_API_SECRET=...
 PORT=5000
 NODE_ENV=development
-CORS_ORIGIN=http://localhost:3000
+FRONTEND_URL=http://localhost:3000
+# FRONTEND_URLS=https://acearena.com,https://www.acearena.com
+# CORS_ORIGIN=http://localhost:3000
 ```
 
 ### package.json

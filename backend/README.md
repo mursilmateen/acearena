@@ -162,14 +162,16 @@ Error responses:
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `MONGO_URI` | MongoDB connection string | `mongodb+srv://...` |
-| `JWT_SECRET` | Secret key for JWT | `your_secret_key` |
+| `JWT_SECRET` | Secret key for JWT | `replace_with_strong_random_secret` |
 | `JWT_EXPIRY` | Token expiration time | `15m` |
 | `CLOUDINARY_CLOUD_NAME` | Cloudinary cloud name | `your_cloud` |
 | `CLOUDINARY_API_KEY` | Cloudinary API key | `123456789` |
 | `CLOUDINARY_API_SECRET` | Cloudinary API secret | `secret_key` |
 | `PORT` | Server port | `5000` |
 | `NODE_ENV` | Environment | `development` |
-| `CORS_ORIGIN` | Frontend URL | `http://localhost:3000` |
+| `FRONTEND_URL` | Single frontend URL for CORS | `http://localhost:3000` |
+| `FRONTEND_URLS` | Comma-separated frontend URLs for CORS | `https://acearena.com,https://www.acearena.com` |
+| `CORS_ORIGIN` | Legacy single-origin CORS variable (still supported) | `http://localhost:3000` |
 
 ## Security Features
 
@@ -296,7 +298,7 @@ npm run build
 - Ensure proper file format
 
 ### CORS Errors
-- Update `CORS_ORIGIN` in `.env`
+- Update `FRONTEND_URL`, `FRONTEND_URLS`, or `CORS_ORIGIN` in `.env`
 - Verify frontend URL is correct
 
 ## Contributing

@@ -45,6 +45,11 @@ JWT_EXPIRY=15m
 
 Set the frontend URL in `.env`:
 ```env
+FRONTEND_URL=http://localhost:3000
+```
+
+Legacy option (also supported):
+```env
 CORS_ORIGIN=http://localhost:3000
 ```
 
@@ -179,7 +184,7 @@ curl -X POST http://localhost:5000/api/auth/register \
 ### CORS Errors
 **Problem:** Frontend can't reach backend
 **Solution:**
-1. Update CORS_ORIGIN in .env to match frontend URL
+1. Update FRONTEND_URL, FRONTEND_URLS, or CORS_ORIGIN in .env to match frontend URL
 2. Restart server after changing .env
 
 ## Development Tips
@@ -209,7 +214,7 @@ curl -X POST http://localhost:5000/api/auth/register \
 
 1. **Connect Frontend**
    - Update API base URL in frontend
-   - Update CORS_ORIGIN in .env
+   - Update FRONTEND_URL (or CORS_ORIGIN) in .env
 
 2. **Add More Features**
    - Comments on games

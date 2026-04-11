@@ -3,7 +3,12 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-const mongoUri = process.env.MONGO_URI || "mongodb://localhost:27017/acearedb";
+const NODE_ENV = process.env.NODE_ENV || "development";
+const mongoUri = process.env.MONGO_URI || (NODE_ENV === "production" ? "" : "mongodb://localhost:27017/acearedb");
+
+if (!mongoUri) {
+  throw new Error("MONGO_URI is required in production");
+}
 
 export const connectDB = async (): Promise<void> => {
   try {

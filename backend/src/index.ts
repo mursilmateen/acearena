@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
-import { connectDB } from "./config/database";
+import { connectDB, disconnectDB } from "./config/database";
 import { errorHandler } from "./middleware/errorHandler";
 
 // Routes
@@ -17,9 +17,42 @@ import postRoutes from "./routes/postRoutes";
 dotenv.config();
 
 const app: Application = express();
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 5000;
 const NODE_ENV = process.env.NODE_ENV || "development";
-const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+const isProduction = NODE_ENV === "production";
+
+const requiredEnvVars = ["MONGO_URI", "JWT_SECRET", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key]?.trim());
+
+if (isProduction && missingEnvVars.length > 0) {
+  console.error(`❌ Missing required environment variables: ${missingEnvVars.join(", ")}`);
+  process.exit(1);
+}
+
+const normalizeOrigin = (origin: string): string => origin.trim().replace(/\/+$/, "");
+
+const parseOrigins = (value?: string): string[] =>
+  (value || "")
+    .split(",")
+    .map((origin) => normalizeOrigin(origin))
+    .filter(Boolean);
+
+const allowedOrigins = new Set<string>([
+  ...parseOrigins(process.env.FRONTEND_URLS),
+  ...parseOrigins(process.env.FRONTEND_URL),
+  ...parseOrigins(process.env.CORS_ORIGIN),
+]);
+
+if (!isProduction && allowedOrigins.size === 0) {
+  allowedOrigins.add("http://localhost:3000");
+}
+
+if (isProduction && allowedOrigins.size === 0) {
+  console.error("❌ Missing CORS configuration. Set FRONTEND_URL, FRONTEND_URLS, or CORS_ORIGIN.");
+  process.exit(1);
+}
+
+app.set("trust proxy", 1);
 
 // Security Middleware
 app.use(helmet());
@@ -27,7 +60,14 @@ app.use(helmet());
 // CORS Configuration
 app.use(
   cors({
-    origin: FRONTEND_URL,
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.has(normalizeOrigin(origin))) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -74,20 +114,55 @@ app.use((req, res) => {
 // Error handler (must be last)
 app.use(errorHandler);
 
+let server: ReturnType<typeof app.listen> | null = null;
+
 // Start server
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, "0.0.0.0", () => {
+    server = app.listen(PORT, "0.0.0.0", () => {
       console.log(`✅ Server running on port ${PORT}`);
       console.log(`📍 Environment: ${NODE_ENV}`);
-      console.log(`🌐 CORS enabled for: ${FRONTEND_URL}`);
+      console.log(`🌐 CORS enabled for: ${Array.from(allowedOrigins).join(", ")}`);
     });
   } catch (error) {
     console.error("❌ Failed to start server", error);
     process.exit(1);
   }
 };
+
+const gracefulShutdown = async (signal: NodeJS.Signals) => {
+  console.log(`\n${signal} received. Shutting down gracefully...`);
+
+  try {
+    if (server) {
+      await new Promise<void>((resolve, reject) => {
+        server?.close((error) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+
+          resolve();
+        });
+      });
+    }
+
+    await disconnectDB();
+    process.exit(0);
+  } catch (error) {
+    console.error("❌ Graceful shutdown failed", error);
+    process.exit(1);
+  }
+};
+
+process.on("SIGINT", () => {
+  void gracefulShutdown("SIGINT");
+});
+
+process.on("SIGTERM", () => {
+  void gracefulShutdown("SIGTERM");
+});
 
 startServer();
 
