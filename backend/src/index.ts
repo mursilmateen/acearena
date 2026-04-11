@@ -21,12 +21,27 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const isProduction = NODE_ENV === "production";
 const PORT = Number(process.env.PORT) || (isProduction ? 8080 : 5000);
 
-const hasMongoUri = Boolean(process.env.MONGO_URI?.trim() || process.env.MONGODB_URI?.trim());
-const requiredEnvVars = ["JWT_SECRET", "CLOUDINARY_CLOUD_NAME", "CLOUDINARY_API_KEY", "CLOUDINARY_API_SECRET"];
+const hasMongoUri = Boolean(
+  process.env.MONGO_URI?.trim() ||
+  process.env.MONGODB_URI?.trim() ||
+  process.env.MONGO_URL?.trim() ||
+  process.env.MONGODB_URL?.trim()
+);
+
+const hasCloudinaryCredentials = Boolean(
+  process.env.CLOUDINARY_URL?.trim() ||
+  (process.env.CLOUDINARY_CLOUD_NAME?.trim() && process.env.CLOUDINARY_API_KEY?.trim() && process.env.CLOUDINARY_API_SECRET?.trim())
+);
+
+const requiredEnvVars = ["JWT_SECRET"];
 const missingEnvVars = requiredEnvVars.filter((key) => !process.env[key]?.trim());
 
 if (!hasMongoUri) {
-  missingEnvVars.unshift("MONGO_URI|MONGODB_URI");
+  missingEnvVars.push("MONGO_URI|MONGODB_URI|MONGO_URL|MONGODB_URL");
+}
+
+if (!hasCloudinaryCredentials) {
+  missingEnvVars.push("CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME+CLOUDINARY_API_KEY+CLOUDINARY_API_SECRET");
 }
 
 if (isProduction && missingEnvVars.length > 0) {

@@ -7,10 +7,12 @@ const NODE_ENV = process.env.NODE_ENV || "development";
 const mongoUri =
   process.env.MONGO_URI?.trim() ||
   process.env.MONGODB_URI?.trim() ||
+  process.env.MONGO_URL?.trim() ||
+  process.env.MONGODB_URL?.trim() ||
   (NODE_ENV === "production" ? "" : "mongodb://localhost:27017/acearedb");
 
 if (!mongoUri) {
-  throw new Error("MONGO_URI (or MONGODB_URI) is required in production");
+  throw new Error("MONGO_URI, MONGODB_URI, MONGO_URL, or MONGODB_URL is required in production");
 }
 
 export const connectDB = async (): Promise<void> => {
