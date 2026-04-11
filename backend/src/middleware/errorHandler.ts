@@ -1,6 +1,13 @@
 import { Request, Response, NextFunction } from "express";
 import { ZodError } from "zod";
 
+interface BodyParserJsonError extends Error {
+  status?: number;
+  statusCode?: number;
+  type?: string;
+  body?: unknown;
+}
+
 export class AppError extends Error {
   constructor(
     public statusCode: number,
@@ -18,6 +25,18 @@ export const errorHandler = (
   next: NextFunction
 ) => {
   console.error("❌ Error:", err);
+
+  const bodyParserError = err as BodyParserJsonError;
+  if (
+    bodyParserError?.type === "entity.parse.failed" ||
+    bodyParserError?.status === 400 ||
+    bodyParserError?.statusCode === 400
+  ) {
+    return res.status(400).json({
+      success: false,
+      error: "Invalid JSON payload",
+    });
+  }
 
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
