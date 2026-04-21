@@ -12,6 +12,15 @@ const cleanupTempFile = (filePath?: string) => {
   }
 };
 
+const isZipArchive = (file: Express.Multer.File): boolean => {
+  const lowerFileName = file.originalname.toLowerCase();
+  return (
+    lowerFileName.endsWith(".zip") ||
+    file.mimetype === "application/zip" ||
+    file.mimetype === "application/x-zip-compressed"
+  );
+};
+
 const parseQueryNumber = (value: unknown): number | undefined => {
   if (typeof value !== "string" || !value.trim()) {
     return undefined;
@@ -56,6 +65,11 @@ export const uploadAssetFile = asyncHandler(
 
     if (!req.file) {
       throw new AppError(400, "No file provided");
+    }
+
+    if (!isZipArchive(req.file)) {
+      cleanupTempFile(req.file.path);
+      throw new AppError(400, "Asset package must be a .zip archive");
     }
 
     if (!UploadService.validateFileSize(req.file.size)) {

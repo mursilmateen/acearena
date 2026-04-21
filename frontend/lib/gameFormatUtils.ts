@@ -35,9 +35,9 @@ const GAME_FORMAT_MAP: Record<GameFormat, GameFormatInfo> = {
     format: 'zip',
     isWebBased: false,
     supportedEmulator: 'none',
-    displayName: 'ZIP Archive',
+    displayName: 'Archive Package',
     canPlayInBrowser: false,
-    description: 'Compressed game files - requires download and extraction',
+    description: 'Compressed game package. Browser play requires an exported web build with index.html and related assets.',
   },
   exe: {
     format: 'exe',

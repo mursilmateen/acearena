@@ -10,11 +10,19 @@ export interface Game {
   thumbnail: string;
   thumbnailUrl?: string;
   fileUrl?: string;
+  downloadUrl?: string;
   galleryImages?: string[];
   fileType?: string;
   author?: string;
   authorId?: string;
-  createdBy?: string;
+  createdBy?:
+    | string
+    | {
+        _id?: string;
+        id?: string;
+        username?: string;
+        avatar?: string;
+      };
   createdAt?: Date;
   updatedAt?: Date;
   downloads?: number;

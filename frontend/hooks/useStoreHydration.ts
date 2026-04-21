@@ -19,6 +19,7 @@ export function useStoreHydration() {
         apiClient.get('/profile')
           .then((response) => {
             const userData = response.data.data;
+            const createdAt = userData?.createdAt ? new Date(userData.createdAt) : new Date();
             const user = {
               id: userData._id || userData.id,
               email: userData.email,
@@ -26,11 +27,11 @@ export function useStoreHydration() {
               role: userData.role || 'player',
               bio: userData.bio || '',
               avatar: userData.avatar || null,
-              joinedDate: new Date(userData.createdAt),
-              gamesUploaded: 0,
-              assetsUploaded: 0,
-              jamsJoined: 0,
-              createdAt: new Date(userData.createdAt),
+              joinedDate: createdAt,
+              gamesUploaded: typeof userData.gamesUploaded === 'number' ? userData.gamesUploaded : 0,
+              assetsUploaded: typeof userData.assetsUploaded === 'number' ? userData.assetsUploaded : 0,
+              jamsJoined: typeof userData.jamsJoined === 'number' ? userData.jamsJoined : 0,
+              createdAt,
             };
             useAppStore.setState({ user, isAuthenticated: true });
           })

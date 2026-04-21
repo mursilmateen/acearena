@@ -27,11 +27,11 @@ export const errorHandler = (
   console.error("❌ Error:", err);
 
   const bodyParserError = err as BodyParserJsonError;
-  if (
+  const isJsonParseFailure =
     bodyParserError?.type === "entity.parse.failed" ||
-    bodyParserError?.status === 400 ||
-    bodyParserError?.statusCode === 400
-  ) {
+    (err instanceof SyntaxError && Object.prototype.hasOwnProperty.call(bodyParserError, "body"));
+
+  if (isJsonParseFailure) {
     return res.status(400).json({
       success: false,
       error: "Invalid JSON payload",

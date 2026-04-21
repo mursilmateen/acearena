@@ -1,6 +1,82 @@
 import { useState, useCallback } from 'react';
 import apiClient from '@/lib/api';
 import { toast } from 'sonner';
+import { useAppStore } from '@/store/appStore';
+import type { User } from '@/types';
+
+type MutationOptions = {
+  silent?: boolean;
+};
+
+const mapBackendGame = (gameData: any) => {
+  if (!gameData || typeof gameData !== 'object') {
+    return gameData;
+  }
+
+  const createdBy = gameData.createdBy && typeof gameData.createdBy === 'object' ? gameData.createdBy : null;
+  const author = gameData.author || createdBy?.username || 'Unknown Developer';
+  const thumbnail = typeof gameData.thumbnail === 'string' ? gameData.thumbnail : '';
+  const downloadUrl = gameData.downloadUrl || gameData.fileUrl || null;
+
+  return {
+    ...gameData,
+    id: gameData.id || gameData._id,
+    author,
+    thumbnail,
+    downloadUrl,
+  };
+};
+
+const mapBackendGames = (games: any): any[] => {
+  if (!Array.isArray(games)) {
+    return [];
+  }
+
+  return games.map(mapBackendGame);
+};
+
+const toSafeDate = (value: unknown, fallback: Date) => {
+  if (value instanceof Date) {
+    return value;
+  }
+
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+};
+
+const toSafeCount = (value: unknown, fallback: number) => {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+};
+
+const mapBackendUserToStoreUser = (userData: any, fallbackUser: User | null): User => {
+  const fallbackCreatedAt = fallbackUser?.createdAt ?? new Date();
+  const createdAt = toSafeDate(userData?.createdAt, fallbackCreatedAt);
+  const joinedDate = toSafeDate(userData?.createdAt ?? fallbackUser?.joinedDate, createdAt);
+  const role = userData?.role === 'developer' || userData?.role === 'player'
+    ? userData.role
+    : (fallbackUser?.role ?? 'player');
+
+  return {
+    id: userData?._id || userData?.id || fallbackUser?.id || '',
+    email: userData?.email || fallbackUser?.email || '',
+    username: userData?.username || fallbackUser?.username || '',
+    role,
+    bio: userData?.bio ?? fallbackUser?.bio ?? '',
+    avatar: userData?.avatar ?? fallbackUser?.avatar,
+    socialLinks: userData?.socialLinks ?? fallbackUser?.socialLinks,
+    joinedDate,
+    gamesUploaded: toSafeCount(userData?.gamesUploaded, fallbackUser?.gamesUploaded ?? 0),
+    assetsUploaded: toSafeCount(userData?.assetsUploaded, fallbackUser?.assetsUploaded ?? 0),
+    jamsJoined: toSafeCount(userData?.jamsJoined, fallbackUser?.jamsJoined ?? 0),
+    createdAt,
+  };
+};
 
 // Auth Hook
 export const useAuth = () => {
@@ -52,33 +128,49 @@ export const useAuth = () => {
 // Profile Hook
 export const useProfile = () => {
   const [loading, setLoading] = useState(false);
+  const user = useAppStore((state) => state.user);
+  const setUser = useAppStore((state) => state.setUser);
 
-  const getProfile = useCallback(async () => {
+  const getProfile = useCallback(async (options?: { silent?: boolean }) => {
     setLoading(true);
     try {
       const response = await apiClient.get('/profile');
-      return response.data.data;
+      const profileData = response.data.data;
+
+      if (profileData) {
+        setUser(mapBackendUserToStoreUser(profileData, user));
+      }
+
+      return profileData;
     } catch (error: any) {
-      toast.error('Failed to fetch profile');
+      if (!options?.silent) {
+        toast.error('Failed to fetch profile');
+      }
       throw error;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUser, user]);
 
   const updateProfile = useCallback(async (updates: any) => {
     setLoading(true);
     try {
       const response = await apiClient.put('/profile', updates);
+      const updatedProfile = response.data.data;
+
+      if (updatedProfile) {
+        setUser(mapBackendUserToStoreUser(updatedProfile, user));
+      }
+
       toast.success('Profile updated!');
-      return response.data.data;
+      return updatedProfile;
     } catch (error: any) {
       toast.error('Failed to update profile');
       throw error;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUser, user]);
 
   const uploadAvatar = useCallback(async (file: File) => {
     setLoading(true);
@@ -89,18 +181,47 @@ export const useProfile = () => {
       const response = await apiClient.post('/profile/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+
+      const updatedProfile = response.data.data;
+      if (updatedProfile) {
+        setUser(mapBackendUserToStoreUser(updatedProfile, user));
+      }
       
       toast.success('Avatar uploaded!');
-      return response.data.data;
+      return updatedProfile;
     } catch (error: any) {
       toast.error('Failed to upload avatar');
       throw error;
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setUser, user]);
 
-  return { getProfile, updateProfile, uploadAvatar, loading };
+  const upgradeToDeveloper = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await apiClient.post('/profile/upgrade-developer');
+      const data = response.data.data;
+
+      if (data?.user) {
+        setUser(mapBackendUserToStoreUser(data.user, user));
+      }
+
+      if (data?.token) {
+        localStorage.setItem('token', data.token);
+      }
+
+      toast.success('Account upgraded to developer!');
+      return data;
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || 'Failed to upgrade account');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, [setUser, user]);
+
+  return { getProfile, updateProfile, uploadAvatar, upgradeToDeveloper, loading };
 };
 
 // Games Hook
@@ -117,7 +238,7 @@ export const useGames = () => {
       if (filters?.search) params.append('search', filters.search);
 
       const response = await apiClient.get(`/games?${params.toString()}`);
-      return response.data.data;
+      return mapBackendGames(response.data.data);
     } catch (error: any) {
       toast.error('Failed to fetch games');
       throw error;
@@ -130,7 +251,7 @@ export const useGames = () => {
     setLoading(true);
     try {
       const response = await apiClient.get('/games/my-games');
-      return response.data.data;
+      return mapBackendGames(response.data.data);
     } catch (error: any) {
       toast.error('Failed to fetch your games');
       throw error;
@@ -143,7 +264,7 @@ export const useGames = () => {
     setLoading(true);
     try {
       const response = await apiClient.get(`/games/${id}`);
-      return response.data.data;
+      return mapBackendGame(response.data.data);
     } catch (error: any) {
       toast.error('Failed to fetch game');
       throw error;
@@ -152,48 +273,60 @@ export const useGames = () => {
     }
   }, []);
 
-  const createGame = useCallback(async (gameData: any) => {
+  const createGame = useCallback(async (gameData: any, options?: MutationOptions) => {
     setLoading(true);
     try {
       const response = await apiClient.post('/games', gameData);
-      toast.success('Game created!');
-      return response.data.data;
+      if (!options?.silent) {
+        toast.success('Game created!');
+      }
+      return mapBackendGame(response.data.data);
     } catch (error: any) {
-      toast.error('Failed to create game');
+      if (!options?.silent) {
+        toast.error('Failed to create game');
+      }
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const updateGame = useCallback(async (id: string, updates: any) => {
+  const updateGame = useCallback(async (id: string, updates: any, options?: MutationOptions) => {
     setLoading(true);
     try {
       const response = await apiClient.put(`/games/${id}`, updates);
-      toast.success('Game updated!');
-      return response.data.data;
+      if (!options?.silent) {
+        toast.success('Game updated!');
+      }
+      return mapBackendGame(response.data.data);
     } catch (error: any) {
-      toast.error('Failed to update game');
+      if (!options?.silent) {
+        toast.error('Failed to update game');
+      }
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const deleteGame = useCallback(async (id: string) => {
+  const deleteGame = useCallback(async (id: string, options?: MutationOptions) => {
     setLoading(true);
     try {
       await apiClient.delete(`/games/${id}`);
-      toast.success('Game deleted!');
+      if (!options?.silent) {
+        toast.success('Game deleted!');
+      }
     } catch (error: any) {
-      toast.error('Failed to delete game');
+      if (!options?.silent) {
+        toast.error('Failed to delete game');
+      }
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const uploadGameFile = useCallback(async (gameId: string, file: File) => {
+  const uploadGameFile = useCallback(async (gameId: string, file: File, options?: MutationOptions) => {
     setLoading(true);
     try {
       const formData = new FormData();
@@ -202,18 +335,32 @@ export const useGames = () => {
       const response = await apiClient.post(`/games/${gameId}/file`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
-      toast.success('Game file uploaded!');
-      return response.data.data;
+
+      if (!options?.silent) {
+        toast.success('Game file uploaded!');
+      }
+
+      const payload = response.data.data;
+      const mappedGame = mapBackendGame(payload?.game || payload);
+      if (payload?.game) {
+        return {
+          ...payload,
+          game: mappedGame,
+        };
+      }
+
+      return mappedGame;
     } catch (error: any) {
-      toast.error('Failed to upload game file');
+      if (!options?.silent) {
+        toast.error('Failed to upload game file');
+      }
       throw error;
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const uploadGameThumbnail = useCallback(async (gameId: string, file: File) => {
+  const uploadGameThumbnail = useCallback(async (gameId: string, file: File, options?: MutationOptions) => {
     setLoading(true);
     try {
       const formData = new FormData();
@@ -222,11 +369,16 @@ export const useGames = () => {
       const response = await apiClient.post(`/games/${gameId}/thumbnail`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
-      
-      toast.success('Thumbnail uploaded!');
-      return response.data.data;
+
+      if (!options?.silent) {
+        toast.success('Thumbnail uploaded!');
+      }
+
+      return mapBackendGame(response.data.data);
     } catch (error: any) {
-      toast.error('Failed to upload thumbnail');
+      if (!options?.silent) {
+        toast.error('Failed to upload thumbnail');
+      }
       throw error;
     } finally {
       setLoading(false);
@@ -300,7 +452,6 @@ export const useAssets = () => {
     setLoading(true);
     try {
       const response = await apiClient.post('/assets', assetData);
-      toast.success('Asset created!');
       return response.data.data;
     } catch (error: any) {
       toast.error('Failed to create asset');
@@ -357,6 +508,26 @@ export const useAssets = () => {
     }
   }, []);
 
+  const uploadAssetThumbnail = useCallback(async (assetId: string, file: File) => {
+    setLoading(true);
+    try {
+      const formData = new FormData();
+      formData.append('thumbnail', file);
+
+      const response = await apiClient.post(`/assets/${assetId}/thumbnail`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+
+      toast.success('Asset thumbnail uploaded!');
+      return response.data.data;
+    } catch (error: unknown) {
+      toast.error('Failed to upload asset thumbnail');
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     getAssets,
     getAllAssets: getAssets,
@@ -366,6 +537,7 @@ export const useAssets = () => {
     updateAsset,
     deleteAsset,
     uploadAssetFile,
+    uploadAssetThumbnail,
     loading,
   };
 };

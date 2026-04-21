@@ -3,18 +3,43 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Download, FileText } from 'lucide-react';
 import AssetCard from '@/components/shared/AssetCard';
 import { useAssets } from '@/hooks/useBackendApi';
 
+type AssetDetail = {
+  _id: string;
+  title: string;
+  description: string;
+  type?: string;
+  price?: number;
+  thumbnail?: string;
+  fileUrl?: string;
+};
+
 export default function AssetDetailPage() {
   const params = useParams();
   const assetId = params.id as string;
   const { getAssetById, getAllAssets, loading } = useAssets();
-  const [asset, setAsset] = useState<any>(null);
-  const [relatedAssets, setRelatedAssets] = useState<any[]>([]);
+  const [asset, setAsset] = useState<AssetDetail | null>(null);
+  const [relatedAssets, setRelatedAssets] = useState<AssetDetail[]>([]);
+
+  const formattedPrice =
+    typeof asset?.price === 'number'
+      ? asset.price === 0
+        ? 'Free'
+        : `$${asset.price.toFixed(2)}`
+      : 'Free';
+
+  const fileType = asset?.fileUrl
+    ? (asset.fileUrl.split('?')[0].split('.').pop() || 'package').toUpperCase()
+    : 'ZIP';
+
+  const handleDownload = () => {
+    if (!asset?.fileUrl) return;
+    window.open(asset.fileUrl, '_blank', 'noopener,noreferrer');
+  };
 
   useEffect(() => {
     const fetchAssetData = async () => {
@@ -24,7 +49,7 @@ export default function AssetDetailPage() {
 
         if (assetData?.type) {
           const allAssets = await getAllAssets({ type: assetData.type });
-          setRelatedAssets(allAssets?.filter((a: any) => a._id !== assetId).slice(0, 4) || []);
+          setRelatedAssets((allAssets?.filter((a: AssetDetail) => a._id !== assetId).slice(0, 4) || []) as AssetDetail[]);
         }
       } catch (error) {
         console.error('Failed to fetch asset:', error);
@@ -54,7 +79,7 @@ export default function AssetDetailPage() {
             Asset Not Found
           </h1>
           <p className="text-gray-600 mb-6">
-            The asset you're looking for doesn't exist or has been removed.
+            The asset you are looking for does not exist or has been removed.
           </p>
           <Button 
             onClick={() => window.location.href = '/assets'}
@@ -72,7 +97,7 @@ export default function AssetDetailPage() {
       {/* Hero Section */}
       <section className="relative h-96 overflow-hidden">
         <img
-          src={asset.thumbnail || '/default-asset.png'}
+          src={asset.thumbnail || '/default-game-thumbnail.svg'}
           alt={asset.title}
           className="w-full h-full object-cover"
         />
@@ -86,17 +111,18 @@ export default function AssetDetailPage() {
                 <div className="flex items-center gap-4 text-white/80 flex-wrap">
                   <span className="flex items-center gap-2 bg-white/10 px-3 py-1 rounded-md">
                     <FileText className="w-4 h-4" />
-                    {asset.type}
-                  </span>
-                  <span className="bg-white/10 px-3 py-1 rounded-md">
-                    {asset.type}
+                    {asset.type || 'Asset'}
                   </span>
                 </div>
               </div>
               <div className="flex flex-col gap-3 w-full sm:w-auto">
-                <Button className="bg-black hover:bg-gray-800 text-white font-semibold py-3 w-full transition-colors">
+                <Button
+                  onClick={handleDownload}
+                  disabled={!asset.fileUrl}
+                  className="bg-black hover:bg-gray-800 text-white font-semibold py-3 w-full transition-colors disabled:opacity-50"
+                >
                   <Download className="w-5 h-5 mr-2" />
-                  {asset.price === 0 ? 'Download Free' : `Buy - $${asset.price}`}
+                  {asset.fileUrl ? (asset.price === 0 ? 'Download Free' : `Buy - ${formattedPrice}`) : 'Package Not Available Yet'}
                 </Button>
               </div>
             </div>
@@ -127,19 +153,19 @@ export default function AssetDetailPage() {
               <div className="space-y-3">
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Category</span>
-                  <span className="font-medium text-black">{asset.category}</span>
+                  <span className="font-medium text-black">{asset.type || 'Asset'}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">File Type</span>
-                  <span className="font-medium text-black">{asset.fileType}</span>
+                  <span className="font-medium text-black">{fileType}</span>
                 </div>
                 <div className="flex justify-between py-2 border-b border-gray-200">
                   <span className="text-gray-600">Price</span>
-                  <span className="font-medium text-black">{asset.price}</span>
+                  <span className="font-medium text-black">{formattedPrice}</span>
                 </div>
                 <div className="flex justify-between py-2">
                   <span className="text-gray-600">Asset ID</span>
-                  <span className="font-mono text-sm text-gray-500">{asset.id}</span>
+                  <span className="font-mono text-sm text-gray-500">{asset._id}</span>
                 </div>
               </div>
             </Card>
@@ -152,11 +178,15 @@ export default function AssetDetailPage() {
               <div className="space-y-4">
                 <div>
                   <p className="text-sm text-gray-500 mb-1">Price</p>
-                  <p className="text-3xl font-bold text-black">{asset.price}</p>
+                  <p className="text-3xl font-bold text-black">{formattedPrice}</p>
                 </div>
-                <Button className="w-full bg-black text-white hover:bg-gray-800 py-3 font-semibold">
+                <Button
+                  onClick={handleDownload}
+                  disabled={!asset.fileUrl}
+                  className="w-full bg-black text-white hover:bg-gray-800 py-3 font-semibold disabled:opacity-50"
+                >
                   <Download className="w-5 h-5 mr-2" />
-                  {asset.price === 'Free' ? 'Download Now' : 'Buy Now'}
+                  {asset.fileUrl ? (asset.price === 0 ? 'Download Now' : 'Buy Now') : 'Package Not Available'}
                 </Button>
               </div>
             </Card>
@@ -167,11 +197,11 @@ export default function AssetDetailPage() {
         {relatedAssets.length > 0 && (
           <section className="mt-16 pt-12 border-t border-gray-200">
             <h2 className="text-2xl font-bold text-black mb-8">
-              More {asset.category} Assets
+              More {asset.type || 'Related'} Assets
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {relatedAssets.map((relatedAsset) => (
-                <AssetCard key={relatedAsset.id} asset={relatedAsset} />
+                <AssetCard key={relatedAsset._id} asset={relatedAsset} />
               ))}
             </div>
           </section>

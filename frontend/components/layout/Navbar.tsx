@@ -9,6 +9,8 @@ import { useAppStore } from '@/store/appStore';
 import { Menu, X, ChevronDown, LogOut, Settings, User, Search, Scale } from 'lucide-react';
 import SearchBar from '@/components/shared/SearchBar';
 import UploadModal from '@/components/modals/UploadModal';
+import UpgradeModal from '@/components/modals/UpgradeModal';
+import { useToast } from '@/hooks/useToast';
 
 export default function Navbar() {
   const router = useRouter();
@@ -16,8 +18,10 @@ export default function Navbar() {
   const { isAuthenticated, logout, user, comparisonGameIds } = useAppStore();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { warning } = useToast();
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -32,11 +36,21 @@ export default function Navbar() {
   }, []);
 
   const handleUploadClick = () => {
+    setUserMenuOpen(false);
+    setMobileMenuOpen(false);
+
     if (!isAuthenticated) {
       router.push('/auth/login');
-    } else {
-      setUploadModalOpen(true);
+      return;
     }
+
+    if (user?.role !== 'developer') {
+      warning('Developer account required', 'Upgrade to developer to upload games and assets.');
+      setUpgradeModalOpen(true);
+      return;
+    }
+
+    setUploadModalOpen(true);
   };
 
   // Get display name: username if exists, else email
@@ -359,6 +373,7 @@ export default function Navbar() {
 
       {/* Upload Modal */}
       <UploadModal isOpen={uploadModalOpen} onClose={() => setUploadModalOpen(false)} />
+      <UpgradeModal isOpen={upgradeModalOpen} onClose={() => setUpgradeModalOpen(false)} />
     </nav>
   );
 }

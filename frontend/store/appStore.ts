@@ -130,6 +130,8 @@ export const useAppStore = create<AppStore>((set) => ({
       
       // Save token
       localStorage.setItem('token', token);
+
+      const createdAt = userData?.createdAt ? new Date(userData.createdAt) : new Date();
       
       // Convert backend user to frontend user format
       const user: User = {
@@ -138,11 +140,11 @@ export const useAppStore = create<AppStore>((set) => ({
         username: userData.username,
         role: userData.role || 'player',
         bio: userData.bio || '',
-        joinedDate: new Date(),
-        gamesUploaded: 0,
-        assetsUploaded: 0,
-        jamsJoined: 0,
-        createdAt: new Date(userData.createdAt),
+        joinedDate: createdAt,
+        gamesUploaded: typeof userData.gamesUploaded === 'number' ? userData.gamesUploaded : 0,
+        assetsUploaded: typeof userData.assetsUploaded === 'number' ? userData.assetsUploaded : 0,
+        jamsJoined: typeof userData.jamsJoined === 'number' ? userData.jamsJoined : 0,
+        createdAt,
       };
       
       set({ user, isAuthenticated: true, isLoading: false });
@@ -167,6 +169,8 @@ export const useAppStore = create<AppStore>((set) => ({
       
       // Save token
       localStorage.setItem('token', token);
+
+      const createdAt = userData?.createdAt ? new Date(userData.createdAt) : new Date();
       
       // Convert backend user to frontend user format
       const user: User = {
@@ -175,11 +179,11 @@ export const useAppStore = create<AppStore>((set) => ({
         username: userData.username,
         role: userData.role || 'player',
         bio: userData.bio || '',
-        joinedDate: new Date(),
-        gamesUploaded: 0,
-        assetsUploaded: 0,
-        jamsJoined: 0,
-        createdAt: new Date(userData.createdAt),
+        joinedDate: createdAt,
+        gamesUploaded: typeof userData.gamesUploaded === 'number' ? userData.gamesUploaded : 0,
+        assetsUploaded: typeof userData.assetsUploaded === 'number' ? userData.assetsUploaded : 0,
+        jamsJoined: typeof userData.jamsJoined === 'number' ? userData.jamsJoined : 0,
+        createdAt,
       };
       
       set({ user, isAuthenticated: true, isLoading: false });

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { AlertCircle, Download, Maximize2, Loader, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -28,21 +29,42 @@ export default function GamePlayer({
   gameFormat,
   onDownload,
 }: GamePlayerProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [showEmulator, setShowEmulator] = useState(false);
-
+  const router = useRouter();
   const canPlay = canPlayInBrowser(gameFormat);
+  const isIframeGame = canPlay && (gameFormat === 'html5' || gameFormat === 'webgl');
   const formatInfo = getGameFormatInfo(gameFormat);
   const iframeUrl = getGameIframeUrl(fileUrl, gameFormat);
 
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isLoading, setIsLoading] = useState(isIframeGame);
+  const [error, setError] = useState<string | null>(null);
+
   useEffect(() => {
-    setIsLoading(false);
-  }, []);
+    if (!isIframeGame) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+  }, [isIframeGame, iframeUrl]);
+
+  useEffect(() => {
+    if (!isIframeGame || !isLoading) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setIsLoading(false);
+      setError('Game is taking too long to load. The build may be missing files or inaccessible.');
+    }, 15000);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [isIframeGame, isLoading]);
 
   // HTML5/WebGL Games - Direct Iframe
-  if (canPlay && (gameFormat === 'html5' || gameFormat === 'webgl')) {
+  if (isIframeGame) {
     return (
       <div className={`relative bg-black rounded-lg overflow-hidden ${isFullscreen ? 'fixed inset-0 z-50' : 'aspect-video'}`}>
         {isLoading && (
@@ -102,7 +124,7 @@ export default function GamePlayer({
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <Button
-            onClick={() => setShowEmulator(false)}
+            onClick={() => router.back()}
             size="sm"
             variant="ghost"
             className="text-gray-600 hover:text-gray-900"
@@ -127,7 +149,7 @@ export default function GamePlayer({
       <div className="space-y-4">
         <div className="flex items-center gap-2 mb-4">
           <Button
-            onClick={() => setShowEmulator(false)}
+            onClick={() => router.back()}
             size="sm"
             variant="ghost"
             className="text-gray-600 hover:text-gray-900"
@@ -159,6 +181,11 @@ export default function GamePlayer({
           This is a <span className="font-semibold">{formatInfo.displayName}</span> game and requires download to play.
         </p>
         <p className="text-sm text-gray-500">{formatInfo.description}</p>
+        {gameFormat === 'zip' && (
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            To enable in-browser play, upload an exported web build archive that includes index.html and all build assets.
+          </p>
+        )}
       </div>
 
       <div className="space-y-2 w-full max-w-sm">

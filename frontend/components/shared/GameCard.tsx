@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Game } from '@/types';
 import FavoriteButton from './FavoriteButton';
@@ -10,10 +10,17 @@ interface GameCardProps {
   game: Game;
 }
 
+const DEFAULT_GAME_THUMBNAIL = '/default-game-thumbnail.svg';
+
 export default function GameCard({ game }: GameCardProps) {
   const gameId = game.id ?? game._id;
   const gameHref = gameId ? `/game/${gameId}` : '/games';
   const priceLabel = game.isFree ? 'Free' : typeof game.price === 'number' ? `$${game.price.toFixed(2)}` : 'N/A';
+  const [thumbnailSrc, setThumbnailSrc] = useState(game.thumbnail || DEFAULT_GAME_THUMBNAIL);
+
+  useEffect(() => {
+    setThumbnailSrc(game.thumbnail || DEFAULT_GAME_THUMBNAIL);
+  }, [game.thumbnail]);
 
   return (
     <Link href={gameHref}>
@@ -21,9 +28,10 @@ export default function GameCard({ game }: GameCardProps) {
         {/* Thumbnail - Square Container with Action Buttons */}
         <div className="relative overflow-hidden bg-gray-100 rounded-lg mb-4 aspect-square">
           <img
-            src={game.thumbnail || 'https://images.unsplash.com/photo-1538481143235-39bab5a55233?w=400&h=400&fit=crop'}
+            src={thumbnailSrc}
             alt={game.title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 block max-w-full"
+            onError={() => setThumbnailSrc(DEFAULT_GAME_THUMBNAIL)}
           />
           {/* Action Buttons - Top Right */}
           {gameId && (

@@ -19,6 +19,40 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const getRegistrationErrorMessage = (error: unknown): string => {
+    const fallback = 'Registration failed. Please try again.';
+    const errorWithResponse = error as {
+      response?: {
+        status?: number;
+        data?: {
+          error?: string;
+          message?: string;
+        };
+      };
+      message?: string;
+    };
+
+    const apiError = errorWithResponse.response?.data;
+
+    if (typeof apiError?.error === 'string' && apiError.error.trim()) {
+      return apiError.error;
+    }
+
+    if (typeof apiError?.message === 'string' && apiError.message.trim()) {
+      return apiError.message;
+    }
+
+    if (errorWithResponse.response?.status === 429) {
+      return 'Too many registration attempts. Please wait a few minutes and try again.';
+    }
+
+    if (typeof errorWithResponse.message === 'string' && errorWithResponse.message.trim()) {
+      return errorWithResponse.message;
+    }
+
+    return fallback;
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -35,10 +69,13 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      await register(formData.email, formData.username, formData.password, formData.role);
+      const normalizedEmail = formData.email.trim().toLowerCase();
+      const normalizedUsername = formData.username.trim();
+
+      await register(normalizedEmail, normalizedUsername, formData.password, formData.role);
       router.push('/'); // Redirect to home on successful registration
     } catch (err) {
-      setError('Registration failed. Please try again.');
+      setError(getRegistrationErrorMessage(err));
       console.error('Registration error:', err);
     } finally {
       setIsLoading(false);

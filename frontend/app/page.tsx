@@ -87,8 +87,11 @@ function HomePageContent() {
           {/* Game Grid */}
           {filteredGames.length > 0 ? (
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mb-16">
-              {filteredGames.map((game) => (
-                <GameCard key={game.id} game={game} />
+              {filteredGames.map((game, index) => (
+                <GameCard
+                  key={game.id || game._id || `${game.title || 'game'}-${index}`}
+                  game={game}
+                />
               ))}
             </div>
           ) : (
@@ -124,8 +127,11 @@ function HomePageContent() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {jams
                 .slice(0, 3)
-                .map((jam: any) => (
-                  <Link key={jam._id} href={`/jams/${jam._id}`}>
+                .map((jam: any, index: number) => (
+                  <Link
+                    key={jam._id || jam.id || `${jam.title || 'jam'}-${index}`}
+                    href={`/jams/${jam._id || jam.id}`}
+                  >
                     <div className="border border-gray-200 rounded-lg p-6 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer group h-full">
                       <div className="flex items-start justify-between mb-3">
                         <h3 className="text-lg font-semibold text-black group-hover:text-gray-800 transition-colors flex-1">

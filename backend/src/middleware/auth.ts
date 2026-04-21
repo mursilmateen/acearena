@@ -58,3 +58,27 @@ export const optionalAuth = (
 
   next();
 };
+
+export const requireDeveloper = (
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+): void => {
+  if (!req.user) {
+    res.status(401).json({
+      success: false,
+      error: "Not authenticated",
+    });
+    return;
+  }
+
+  if (req.user.role !== "developer") {
+    res.status(403).json({
+      success: false,
+      error: "Developer account required",
+    });
+    return;
+  }
+
+  next();
+};

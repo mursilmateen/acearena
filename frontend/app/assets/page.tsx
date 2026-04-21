@@ -1,31 +1,59 @@
 'use client';
 
 import React, { useState, useEffect, Suspense } from 'react';
+import Link from 'next/link';
 import AssetSidebar from '@/components/layout/AssetSidebar';
 import AssetCard from '@/components/shared/AssetCard';
 import { useSearchParams } from 'next/navigation';
 import { useAssets } from '@/hooks/useBackendApi';
 
+type AssetListItem = {
+  _id?: string;
+  id?: string;
+  title: string;
+  description: string;
+  type?: string;
+  category?: string;
+  price?: number | string;
+  thumbnail?: string;
+  image?: string;
+  fileType?: string;
+  fileUrl?: string;
+};
+
+const CATEGORY_MAP: Record<string, string> = {
+  '2D Assets': '2D',
+  '3D Models': '3D',
+  'Sound Effects': 'audio',
+  Music: 'music',
+  'Plugins / Tools': 'plugin',
+  Other: 'other',
+  Sprites: '2D',
+  'UI Kits': 'plugin',
+};
+
 function AssetsPageContent() {
   const searchParams = useSearchParams();
   const { getAllAssets, loading } = useAssets();
-  const [filteredAssets, setFilteredAssets] = useState<any[]>([]);
+  const [filteredAssets, setFilteredAssets] = useState<AssetListItem[]>([]);
 
   useEffect(() => {
     const fetchAssets = async () => {
       try {
-        const filters: any = {};
+        const filters: Record<string, string | number> = {};
 
         // Category filter
         const category = searchParams.get('category');
         if (category) {
-          filters.type = category;
+          filters.type = CATEGORY_MAP[category] || category;
         }
 
         // Price filter
         const priceFilter = searchParams.get('price');
         if (priceFilter === 'free') {
           filters.maxPrice = 0;
+        } else if (priceFilter === 'paid') {
+          filters.minPrice = 0.01;
         } else if (priceFilter === 'under-5') {
           filters.maxPrice = 5;
         } else if (priceFilter === 'under-10') {
@@ -34,7 +62,7 @@ function AssetsPageContent() {
 
         // File type filter is handled on frontend for now
         const data = await getAllAssets(filters);
-        setFilteredAssets(data || []);
+        setFilteredAssets(Array.isArray(data) ? (data as AssetListItem[]) : []);
       } catch (error) {
         console.error('Failed to fetch assets:', error);
         setFilteredAssets([]);
@@ -83,12 +111,12 @@ function AssetsPageContent() {
               <p className="text-sm text-gray-600 mb-4">
                 No assets found matching your filters
               </p>
-              <a
+              <Link
                 href="/assets"
                 className="inline-block px-6 py-2 bg-black text-white text-sm rounded hover:bg-gray-800 transition-colors"
               >
                 View All Assets
-              </a>
+              </Link>
             </div>
           )}
         </div>

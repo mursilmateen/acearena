@@ -21,6 +21,40 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [usernameError, setUsernameError] = useState('');
 
+  const getRegistrationErrorMessage = (error: unknown): string => {
+    const fallback = 'Registration failed. Please try again.';
+    const errorWithResponse = error as {
+      response?: {
+        status?: number;
+        data?: {
+          error?: string;
+          message?: string;
+        };
+      };
+      message?: string;
+    };
+
+    const apiError = errorWithResponse.response?.data;
+
+    if (typeof apiError?.error === 'string' && apiError.error.trim()) {
+      return apiError.error;
+    }
+
+    if (typeof apiError?.message === 'string' && apiError.message.trim()) {
+      return apiError.message;
+    }
+
+    if (errorWithResponse.response?.status === 429) {
+      return 'Too many registration attempts. Please wait a few minutes and try again.';
+    }
+
+    if (typeof errorWithResponse.message === 'string' && errorWithResponse.message.trim()) {
+      return errorWithResponse.message;
+    }
+
+    return fallback;
+  };
+
   // Real-time username validation
   const handleUsernameChange = (value: string) => {
     setUsername(value);
@@ -79,9 +113,8 @@ export default function RegisterPage() {
     try {
       await register(email, username, password, role);
       router.push('/dashboard');
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Registration failed. Please try again.';
-      setError(errorMessage);
+    } catch (err) {
+      setError(getRegistrationErrorMessage(err));
     }
   };
 

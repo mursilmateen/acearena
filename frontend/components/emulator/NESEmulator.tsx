@@ -13,6 +13,7 @@ import {
   SaveState,
 } from '@/lib/emulatorUtils';
 import { GameControllerHandler, GamepadInputState } from '@/lib/gameControllerHandler';
+import apiClient from '@/lib/api';
 
 interface NESEmulatorProps {
   romUrl: string;
@@ -194,17 +195,7 @@ export default function NESEmulator({
 
   const saveSaveStateToBackend = async (saveState: SaveState): Promise<void> => {
     try {
-      const response = await fetch(`/api/games/${gameId}/save-state`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(saveState),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to save state to backend');
-      }
+      await apiClient.post(`/games/${gameId}/save-state`, saveState);
     } catch (err) {
       console.error('Backend save failed:', err);
       // Continue anyway - state is saved locally

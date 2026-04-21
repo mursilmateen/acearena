@@ -2,7 +2,24 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ASSET_CATEGORIES, PRICE_OPTIONS, FILE_TYPES } from '@/data/assetsData';
+
+const CATEGORY_OPTIONS = [
+  { value: '2D', label: '2D Assets' },
+  { value: '3D', label: '3D Models' },
+  { value: 'audio', label: 'Sound Effects' },
+  { value: 'music', label: 'Music' },
+  { value: 'plugin', label: 'Plugins / Tools' },
+  { value: 'other', label: 'Other' },
+];
+
+const PRICE_OPTIONS = [
+  { label: 'Free', value: 'free' },
+  { label: 'Paid', value: 'paid' },
+  { label: 'Under $5', value: 'under-5' },
+  { label: 'Under $10', value: 'under-10' },
+];
+
+const FILE_TYPES = ['ZIP Package'];
 
 interface AssetSidebarProps {
   selectedCategory?: string;
@@ -24,17 +41,17 @@ export default function AssetSidebar({
             Category
           </h3>
           <nav className="space-y-2">
-            {ASSET_CATEGORIES.map((category) => (
+            {CATEGORY_OPTIONS.map((category) => (
               <Link
-                key={category}
-                href={`/assets?category=${encodeURIComponent(category)}`}
+                key={category.value}
+                href={`/assets?category=${encodeURIComponent(category.value)}`}
                 className={`block text-left px-0 py-1.5 text-sm transition-colors leading-snug ${
-                  selectedCategory === category
+                  selectedCategory === category.value
                     ? 'text-black font-semibold'
                     : 'text-gray-600 hover:text-black'
                 }`}
               >
-                {category}
+                {category.label}
               </Link>
             ))}
           </nav>

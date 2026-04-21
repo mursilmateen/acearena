@@ -1,5 +1,7 @@
 import rateLimit from "express-rate-limit";
 
+const isProduction = process.env.NODE_ENV === "production";
+
 // General API rate limiter - 100 requests per 15 minutes per IP
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -9,11 +11,13 @@ export const apiLimiter = rateLimit({
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
 });
 
-// Strict rate limiter for auth endpoints - 5 requests per 15 minutes per IP
+// Keep auth stricter in production but less disruptive for local testing
 export const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 5, // limit each IP to 5 requests per windowMs
-  message: "Too many authentication attempts, please try again after 15 minutes",
+  windowMs: isProduction ? 15 * 60 * 1000 : 5 * 60 * 1000,
+  max: isProduction ? 5 : 100,
+  message: isProduction
+    ? "Too many authentication attempts, please try again after 15 minutes"
+    : "Too many authentication attempts, please try again after 5 minutes",
   skipSuccessfulRequests: true, // Don't count successful requests
   standardHeaders: true,
   legacyHeaders: false,

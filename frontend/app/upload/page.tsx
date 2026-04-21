@@ -8,20 +8,131 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { Upload, X, AlertCircle, Loader, Info } from 'lucide-react';
-import { useGames } from '@/hooks/useBackendApi';
+import { useGames, useProfile } from '@/hooks/useBackendApi';
 import { useAppStore } from '@/store/appStore';
 import { useToast } from '@/hooks/useToast';
 import UpgradeModal from '@/components/modals/UpgradeModal';
 import { detectGameFormat, getGameFormatInfo, canPlayInBrowser, GameFormat } from '@/lib/gameFormatUtils';
+import apiClient from '@/lib/api';
+
+type ApiErrorDetail = {
+  field?: string;
+  message?: string;
+};
+
+type ApiErrorPayload = {
+  error?: string;
+  message?: string;
+  details?: ApiErrorDetail[];
+};
+
+type UploadStage = 'idle' | 'creating' | 'thumbnail' | 'file' | 'finalizing';
+
+const getApiErrorMessage = (error: unknown, fallback: string) => {
+  const errorWithResponse = error as {
+    response?: {
+      data?: ApiErrorPayload;
+    };
+    message?: string;
+  };
+
+  const apiData = errorWithResponse.response?.data;
+  const details = Array.isArray(apiData?.details) ? apiData.details : [];
+
+  if (details.length > 0) {
+    const detailMessage = details
+      .map((detail) => detail?.message)
+      .filter(Boolean)
+      .join(' | ');
+
+    if (detailMessage) {
+      return detailMessage;
+    }
+  }
+
+  if (typeof apiData?.error === 'string' && apiData.error.trim()) {
+    return apiData.error;
+  }
+
+  if (typeof apiData?.message === 'string' && apiData.message.trim()) {
+    return apiData.message;
+  }
+
+  if (typeof errorWithResponse.message === 'string' && errorWithResponse.message.trim()) {
+    return errorWithResponse.message;
+  }
+
+  return fallback;
+};
+
+const isUnsupportedArchiveFileName = (fileName: string): boolean => {
+  const lowerName = fileName.toLowerCase();
+  return (
+    lowerName.endsWith('.7z') ||
+    lowerName.endsWith('.rar') ||
+    lowerName.endsWith('.tar') ||
+    lowerName.endsWith('.tar.gz') ||
+    lowerName.endsWith('.tgz')
+  );
+};
+
+const archiveRejectionMessage =
+  'Archive upload rejected: only .zip browser builds are supported. Export your game for web and upload the .zip that includes index.html and all build assets.';
 
 export default function UploadPage() {
   const router = useRouter();
   const { user, isAuthenticated } = useAppStore();
-  const { createGame, uploadGameThumbnail, uploadGameFile, loading } = useGames();
+  const { createGame, uploadGameThumbnail, uploadGameFile, deleteGame, loading } = useGames();
+  const { getProfile } = useProfile();
   const { success, error: errorToast } = useToast();
+  const fieldClassName = 'h-11 border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 focus-visible:border-black focus-visible:ring-1 focus-visible:ring-black';
+  const textAreaClassName = 'min-h-[160px] border-gray-300 bg-white text-gray-900 placeholder:text-gray-500 focus-visible:border-black focus-visible:ring-1 focus-visible:ring-black';
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [uploadStage, setUploadStage] = useState<UploadStage>('idle');
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    tags: [] as string[],
+    isFree: true,
+    price: '',
+  });
+  const [tagInput, setTagInput] = useState('');
+  const [thumbnail, setThumbnail] = useState<File | null>(null);
+  const [gameFile, setGameFile] = useState<File | null>(null);
+  const [detectedFormat, setDetectedFormat] = useState<GameFormat>('other');
+  const [formatInfo, setFormatInfo] = useState(getGameFormatInfo('other'));
+
+  const getUploadStageMessage = (stage: UploadStage) => {
+    switch (stage) {
+      case 'creating':
+        return 'Creating game record';
+      case 'thumbnail':
+        return 'Uploading thumbnail';
+      case 'file':
+        return 'Uploading game file';
+      case 'finalizing':
+        return 'Finalizing upload';
+      default:
+        return 'Preparing upload';
+    }
+  };
+
+  const getUploadProgress = (stage: UploadStage) => {
+    switch (stage) {
+      case 'creating':
+        return 20;
+      case 'thumbnail':
+        return 45;
+      case 'file':
+        return 80;
+      case 'finalizing':
+        return 95;
+      default:
+        return 5;
+    }
+  };
 
   // Access Control
   if (!isAuthenticated) {
@@ -79,20 +190,6 @@ export default function UploadPage() {
     );
   }
 
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    tags: [] as string[],
-    isFree: true,
-    price: '',
-  });
-
-  const [tagInput, setTagInput] = useState('');
-  const [thumbnail, setThumbnail] = useState<File | null>(null);
-  const [gameFile, setGameFile] = useState<File | null>(null);
-  const [detectedFormat, setDetectedFormat] = useState<GameFormat>('other');
-  const [formatInfo, setFormatInfo] = useState(getGameFormatInfo('other'));
-
   const handleInputChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
@@ -127,6 +224,14 @@ export default function UploadPage() {
   const handleGameFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (isUnsupportedArchiveFileName(file.name)) {
+        setFormError(archiveRejectionMessage);
+        setGameFile(null);
+        e.target.value = '';
+        return;
+      }
+
+      setFormError(null);
       setGameFile(file);
       
       // Detect game format from filename
@@ -140,18 +245,48 @@ export default function UploadPage() {
     e.preventDefault();
     setFormError(null);
 
-    if (!formData.title || !formData.description) {
+    const title = formData.title.trim();
+    const description = formData.description.trim();
+
+    if (!title || !description) {
       setFormError('Title and description are required');
       return;
     }
 
+    if (title.length < 3) {
+      setFormError('Game title must be at least 3 characters');
+      return;
+    }
+
+    if (description.length < 10) {
+      setFormError('Description must be at least 10 characters');
+      return;
+    }
+
+    if (!thumbnail) {
+      setFormError('Game thumbnail is required');
+      return;
+    }
+
+    if (!gameFile) {
+      setFormError('Game file is required');
+      return;
+    }
+
+    if (isUnsupportedArchiveFileName(gameFile.name)) {
+      setFormError(archiveRejectionMessage);
+      return;
+    }
+
     setIsSaving(true);
+    setUploadStage('creating');
+    let createdGameId: string | null = null;
 
     try {
       // Create game with basic info and detected format
       const gameData = {
-        title: formData.title,
-        description: formData.description,
+        title,
+        description,
         tags: formData.tags,
         price: formData.isFree ? 0 : parseFloat(formData.price) || 0,
         gameFormat: detectedFormat,
@@ -159,26 +294,31 @@ export default function UploadPage() {
         supportedEmulator: formatInfo.supportedEmulator,
       };
 
-      const createdGame = await createGame(gameData);
+      const createdGame = await createGame(gameData, { silent: true });
+      createdGameId = createdGame?._id || createdGame?.id || null;
 
-      // Upload thumbnail if provided
-      if (thumbnail && createdGame._id) {
-        try {
-          await uploadGameThumbnail(createdGame._id, thumbnail);
-        } catch (err) {
-          console.error('Thumbnail upload failed:', err);
-          // Continue even if thumbnail fails
-        }
+      if (!createdGameId) {
+        throw new Error('Game record was created without a valid ID');
       }
 
-      // Upload game file if provided
-      if (gameFile && createdGame._id) {
-        try {
-          await uploadGameFile(createdGame._id, gameFile);
-        } catch (err) {
-          console.error('Game file upload failed:', err);
-          // Continue even if file fails
-        }
+      setUploadStage('thumbnail');
+      const uploadedThumbnailGame = await uploadGameThumbnail(createdGameId, thumbnail, { silent: true });
+      if (!uploadedThumbnailGame?.thumbnail) {
+        throw new Error('Thumbnail upload did not complete successfully');
+      }
+
+      setUploadStage('file');
+      const uploadedPayload = await uploadGameFile(createdGameId, gameFile, { silent: true });
+      const uploadedGame = uploadedPayload?.game || uploadedPayload;
+      if (!uploadedGame?.fileUrl) {
+        throw new Error('Game file upload did not complete successfully');
+      }
+
+      setUploadStage('finalizing');
+      try {
+        await getProfile({ silent: true });
+      } catch (refreshError) {
+        console.warn('Failed to refresh profile stats after upload:', refreshError);
       }
 
       success('Game uploaded successfully!');
@@ -186,42 +326,77 @@ export default function UploadPage() {
       setTimeout(() => {
         router.push('/dashboard?section=games');
       }, 2000);
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || 'Failed to upload game';
+    } catch (err: unknown) {
+      if (createdGameId) {
+        try {
+          await deleteGame(createdGameId, { silent: true });
+        } catch (cleanupError) {
+          console.error('Failed to rollback game after upload failure:', cleanupError);
+          try {
+            await apiClient.delete(`/games/${createdGameId}`);
+          } catch (fallbackCleanupError) {
+            console.error('Fallback rollback request failed:', fallbackCleanupError);
+          }
+        }
+      }
+
+      const errorMessage = getApiErrorMessage(err, 'Failed to upload game');
       setFormError(errorMessage);
       errorToast(errorMessage);
     } finally {
       setIsSaving(false);
+      setUploadStage('idle');
     }
   };
 
   return (
-    <div className="min-h-screen bg-white dark:bg-slate-950 py-12">
+    <div className="min-h-screen bg-white py-12">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-bold text-slate-900 dark:text-white mb-2">
+          <h1 className="text-4xl font-bold text-black mb-2">
             Upload Your Game
           </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400">
+          <p className="text-lg text-gray-500">
             Share your creation with the AceArena community
           </p>
         </div>
 
-        {/* Success Message */}
+        {/* Error Message */}
         {formError && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-red-800 dark:text-red-200 font-medium flex items-center gap-2">
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-800 font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               {formError}
             </p>
           </div>
         )}
 
+        {isSaving && (
+          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+            <div className="mb-2 flex items-center justify-between text-sm font-semibold text-emerald-900">
+              <span className="flex items-center gap-2">
+              <Loader className="w-4 h-4 animate-spin" />
+              {getUploadStageMessage(uploadStage)}
+              </span>
+              <span>{getUploadProgress(uploadStage)}%</span>
+            </div>
+            <div className="h-2.5 w-full overflow-hidden rounded-full bg-emerald-100">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-green-600 transition-all duration-300"
+                style={{ width: `${getUploadProgress(uploadStage)}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-emerald-800">
+              Upload in progress. Please keep this tab open until completion.
+            </p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-8">
           {/* Game Title */}
-          <Card className="p-6">
-            <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
+          <Card className="p-6 border border-gray-200 bg-white text-black ring-0">
+            <label className="block text-sm font-semibold text-black mb-2">
               Game Title *
             </label>
             <Input
@@ -231,13 +406,13 @@ export default function UploadPage() {
               onChange={handleInputChange}
               placeholder="Enter your game title"
               required
-              className="w-full"
+              className={`w-full ${fieldClassName}`}
             />
           </Card>
 
           {/* Description */}
-          <Card className="p-6">
-            <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-2">
+          <Card className="p-6 border border-gray-200 bg-white text-black ring-0">
+            <label className="block text-sm font-semibold text-black mb-2">
               Description *
             </label>
             <Textarea
@@ -247,13 +422,13 @@ export default function UploadPage() {
               placeholder="Describe your game in detail..."
               required
               rows={6}
-              className="w-full"
+              className={`w-full ${textAreaClassName}`}
             />
           </Card>
 
           {/* Tags */}
-          <Card className="p-6">
-            <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-4">
+          <Card className="p-6 border border-gray-200 bg-white text-black ring-0">
+            <label className="block text-sm font-semibold text-black mb-4">
               Tags
             </label>
             <div className="flex gap-2 mb-4">
@@ -263,13 +438,13 @@ export default function UploadPage() {
                 onChange={(e) => setTagInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && (e.preventDefault(), addTag())}
                 placeholder="Add tags (e.g., Horror, Puzzle)"
-                className="flex-1"
+                className={`flex-1 ${fieldClassName}`}
               />
               <Button
                 type="button"
                 onClick={addTag}
                 variant="outline"
-                className="px-6"
+                className="px-6 border-gray-300 bg-white text-black hover:bg-gray-100 dark:border-gray-300 dark:bg-white dark:text-black dark:hover:bg-gray-100"
               >
                 Add Tag
               </Button>
@@ -293,8 +468,8 @@ export default function UploadPage() {
           </Card>
 
           {/* Pricing */}
-          <Card className="p-6">
-            <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-4">
+          <Card className="p-6 border border-gray-200 bg-white text-black ring-0">
+            <label className="block text-sm font-semibold text-black mb-4">
               Pricing
             </label>
             <div className="space-y-4">
@@ -308,7 +483,7 @@ export default function UploadPage() {
                   }
                   className="w-4 h-4"
                 />
-                <span className="text-slate-700 dark:text-slate-300">
+                <span className="text-gray-700">
                   Free Game
                 </span>
               </label>
@@ -322,7 +497,7 @@ export default function UploadPage() {
                   }
                   className="w-4 h-4"
                 />
-                <span className="text-slate-700 dark:text-slate-300">
+                <span className="text-gray-700">
                   Paid Game
                 </span>
               </label>
@@ -336,18 +511,18 @@ export default function UploadPage() {
                   step="0.01"
                   min="0.99"
                   required={!formData.isFree}
-                  className="ml-8"
+                  className={`ml-8 ${fieldClassName}`}
                 />
               )}
             </div>
           </Card>
 
           {/* Thumbnail Upload */}
-          <Card className="p-6">
-            <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-4">
+          <Card className="p-6 border border-gray-200 bg-white text-black ring-0">
+            <label className="block text-sm font-semibold text-black mb-4">
               Game Thumbnail *
             </label>
-            <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-8 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+            <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
               <input
                 type="file"
                 accept="image/*"
@@ -356,17 +531,17 @@ export default function UploadPage() {
                 required
               />
               <div className="pointer-events-none">
-                <Upload className="w-10 h-10 mx-auto mb-2 text-slate-400" />
-                <p className="text-slate-600 dark:text-slate-400 mb-1">
+                <Upload className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                <p className="text-gray-600 mb-1">
                   Click to upload or drag and drop
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-500">
+                <p className="text-sm text-gray-500">
                   PNG, JPG, GIF up to 10MB
                 </p>
               </div>
               {thumbnail && (
                 <div className="mt-4 text-left">
-                  <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                  <p className="text-sm font-medium text-green-600">
                     ✓ {thumbnail.name}
                   </p>
                 </div>
@@ -375,30 +550,30 @@ export default function UploadPage() {
           </Card>
 
           {/* Game File Upload */}
-          <Card className="p-6">
-            <label className="block text-sm font-semibold text-slate-900 dark:text-white mb-4">
+          <Card className="p-6 border border-gray-200 bg-white text-black ring-0">
+            <label className="block text-sm font-semibold text-black mb-4">
               Game File *
             </label>
-            <div className="relative border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg p-8 text-center hover:border-gray-400 dark:hover:border-gray-500 transition-colors">
+            <div className="relative border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-gray-400 transition-colors">
               <input
                 type="file"
-                accept=".zip,.7z,.rar,.tar.gz,.html,.htm,.exe,.dmg,.apk,.nes,.rom,.z64,.smc,.sfc"
+                accept=".zip,.html,.htm,.exe,.dmg,.apk,.nes,.rom,.z64,.smc,.sfc"
                 onChange={handleGameFileUpload}
                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 required
               />
               <div className="pointer-events-none">
-                <Upload className="w-10 h-10 mx-auto mb-2 text-slate-400" />
-                <p className="text-slate-600 dark:text-slate-400 mb-1">
+                <Upload className="w-10 h-10 mx-auto mb-2 text-gray-400" />
+                <p className="text-gray-600 mb-1">
                   Click to upload or drag and drop
                 </p>
-                <p className="text-sm text-slate-500 dark:text-slate-500">
-                  ZIP, 7Z, RAR, TAR.GZ, HTML5, EXE, DMG, APK, ROM files up to 1GB
+                <p className="text-sm text-gray-500">
+                  ZIP (web build), HTML5, EXE, DMG, APK, ROM files up to 1GB
                 </p>
               </div>
               {gameFile && (
                 <div className="mt-4 text-left">
-                  <p className="text-sm font-medium text-green-600 dark:text-green-400">
+                  <p className="text-sm font-medium text-green-600">
                     ✓ {gameFile.name}
                   </p>
                 </div>
@@ -408,27 +583,32 @@ export default function UploadPage() {
 
           {/* Game Format Information */}
           {gameFile && (
-            <Card className="p-6 border-l-4 border-blue-500 bg-blue-50 dark:bg-blue-900/20">
+            <Card className="p-6 border-l-4 border-black bg-gray-50 border border-gray-200 text-black ring-0">
               <div className="flex items-start gap-4">
-                <Info className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <Info className="w-5 h-5 text-black flex-shrink-0 mt-0.5" />
                 <div className="flex-1">
-                  <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
+                  <h3 className="font-semibold text-black mb-2">
                     Game Format Detected
                   </h3>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
-                      <Badge className="bg-blue-600 text-white">{formatInfo.displayName}</Badge>
+                      <Badge className="bg-black text-white">{formatInfo.displayName}</Badge>
                       {canPlayInBrowser(detectedFormat) ? (
                         <Badge className="bg-green-600 text-white">Browser Compatible</Badge>
                       ) : (
                         <Badge className="bg-amber-600 text-white">Download Required</Badge>
                       )}
                     </div>
-                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                    <p className="text-sm text-gray-700">
                       {formatInfo.description}
                     </p>
+                    {detectedFormat === 'zip' && (
+                      <p className="text-xs text-blue-700 font-medium">
+                        Tip: If this archive is an exported web build with index.html and its asset files, AceArena will auto-enable browser play after upload.
+                      </p>
+                    )}
                     {canPlayInBrowser(detectedFormat) && (
-                      <p className="text-xs text-green-700 dark:text-green-400 font-medium">
+                      <p className="text-xs text-green-700 font-medium">
                         ✓ Players can play this game directly in their browser!
                       </p>
                     )}
@@ -443,12 +623,21 @@ export default function UploadPage() {
             <Button
               type="submit"
               disabled={isSaving || loading}
-              className="flex-1 bg-black hover:bg-gray-900 text-white font-semibold py-3 disabled:opacity-50"
+              className={`flex-1 py-3 font-semibold text-white transition-all disabled:cursor-not-allowed disabled:opacity-100 ${
+                isSaving
+                  ? 'bg-emerald-600 hover:bg-emerald-600 shadow-lg shadow-emerald-200'
+                  : 'bg-black hover:bg-gray-800'
+              }`}
             >
               {isSaving ? (
                 <>
                   <Loader className="w-4 h-4 animate-spin mr-2 inline" />
-                  Uploading...
+                  {getUploadStageMessage(uploadStage)} ({getUploadProgress(uploadStage)}%)
+                </>
+              ) : loading ? (
+                <>
+                  <Loader className="w-4 h-4 animate-spin mr-2 inline" />
+                  Preparing...
                 </>
               ) : (
                 'Upload Game'
@@ -457,10 +646,11 @@ export default function UploadPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => window.history.back()}
-              className="flex-1"
+              onClick={() => router.back()}
+              disabled={isSaving}
+              className="flex-1 border-gray-400 bg-gray-100 text-gray-900 hover:bg-gray-200 disabled:border-gray-300 disabled:bg-gray-200 disabled:text-gray-500 disabled:opacity-100"
             >
-              Cancel
+              Cancel Upload
             </Button>
           </div>
         </form>

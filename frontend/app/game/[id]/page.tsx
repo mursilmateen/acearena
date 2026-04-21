@@ -4,14 +4,14 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
 import { Download, Play, ArrowLeft, Loader, Star, Trash2 } from 'lucide-react';
-import GameCard from '@/components/shared/GameCard';
 import GamePlayer from '@/components/game/GamePlayer';
 import Link from 'next/link';
 import { useGames } from '@/hooks/useBackendApi';
 import { canPlayInBrowser, detectGameFormat, GameFormat } from '@/lib/gameFormatUtils';
 import apiClient from '@/lib/api';
+
+const DEFAULT_GAME_THUMBNAIL = '/default-game-thumbnail.svg';
 
 interface Comment {
   _id: string;
@@ -46,65 +46,116 @@ export default function GameDetailPage() {
   const [submittingComment, setSubmittingComment] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [commentError, setCommentError] = useState('');
+  const [heroThumbnailSrc, setHeroThumbnailSrc] = useState(DEFAULT_GAME_THUMBNAIL);
   const { addRecentGameView, user, isAuthenticated } = useAppStore();
   const { getGameById, getGames } = useGames();
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchGameData = async () => {
       try {
         const gameData = await getGameById(gameId);
+        if (!isMounted) {
+          return;
+        }
+
         setGame(gameData);
+        setHeroThumbnailSrc(gameData?.thumbnail || DEFAULT_GAME_THUMBNAIL);
         addRecentGameView(gameId);
 
         // Detect game format from file URL or stored format
         const format = gameData.gameFormat || (gameData.fileUrl ? detectGameFormat(gameData.fileUrl) : 'other');
         setGameFormat(format as GameFormat);
 
+        // Render game details immediately; secondary sections can continue loading.
+        setLoading(false);
+
         // Fetch related games by tags
         if (gameData.tags && gameData.tags.length > 0) {
-          const allGames = await getGames({ tags: gameData.tags.slice(0, 2) });
-          setRelatedGames(allGames.filter((g: any) => g._id !== gameId).slice(0, 5));
+          void getGames({ tags: gameData.tags.slice(0, 2) })
+            .then((allGames) => {
+              if (!isMounted) {
+                return;
+              }
+
+              setRelatedGames(
+                allGames
+                  .filter((g: any) => (g._id || g.id) !== gameId)
+                  .slice(0, 5)
+              );
+            })
+            .catch((error) => {
+              console.error('Failed to fetch related games:', error);
+            });
         }
 
         // Fetch comments
-        try {
-          const commentsRes = await apiClient.get(`/games/${gameId}/comments`);
-          if (commentsRes.data?.success) {
-            setComments(commentsRes.data.data);
-          }
-        } catch (error) {
-          console.error('Failed to fetch comments:', error);
-        }
+        void apiClient
+          .get(`/games/${gameId}/comments`)
+          .then((commentsRes) => {
+            if (!isMounted) {
+              return;
+            }
+
+            if (commentsRes.data?.success) {
+              setComments(commentsRes.data.data);
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to fetch comments:', error);
+          });
 
         // Fetch ratings
-        try {
-          const ratingsRes = await apiClient.get(`/games/${gameId}/ratings`);
-          if (ratingsRes.data?.success) {
-            setRatingsData(ratingsRes.data.data);
-          }
-        } catch (error) {
-          console.error('Failed to fetch ratings:', error);
-        }
+        void apiClient
+          .get(`/games/${gameId}/ratings`)
+          .then((ratingsRes) => {
+            if (!isMounted) {
+              return;
+            }
+
+            if (ratingsRes.data?.success) {
+              setRatingsData(ratingsRes.data.data);
+            }
+          })
+          .catch((error) => {
+            console.error('Failed to fetch ratings:', error);
+          });
 
         // Fetch user's rating if authenticated
         if (isAuthenticated) {
-          try {
-            const userRatingRes = await apiClient.get(`/games/${gameId}/ratings/me`);
-            if (userRatingRes.data?.data) {
-              setUserRating(userRatingRes.data.data.score);
-            }
-          } catch (error) {
-            console.error('Failed to fetch user rating:', error);
-          }
+          void apiClient
+            .get(`/games/${gameId}/ratings/me`)
+            .then((userRatingRes) => {
+              if (!isMounted) {
+                return;
+              }
+
+              if (userRatingRes.data?.data) {
+                setUserRating(userRatingRes.data.data.score);
+              }
+            })
+            .catch((error) => {
+              console.error('Failed to fetch user rating:', error);
+            });
         }
       } catch (error) {
         console.error('Failed to fetch game:', error);
+        if (isMounted) {
+          setGame(null);
+        }
       } finally {
+        if (isMounted) {
         setLoading(false);
+        }
       }
     };
 
     fetchGameData();
+
+    return () => {
+      isMounted = false;
+    };
   }, [gameId, getGameById, getGames, addRecentGameView, isAuthenticated]);
 
   const handlePlayGame = () => {
@@ -114,10 +165,14 @@ export default function GameDetailPage() {
   };
 
   const handleDownloadGame = () => {
-    if (game?.fileUrl) {
-      // Open download link in new tab
-      window.open(game.fileUrl, '_blank');
+    if (!game?._id && !game?.id) {
+      return;
     }
+
+    const gameIdentifier = game._id || game.id;
+    const baseApiUrl = (String(apiClient.defaults.baseURL || '/api')).replace(/\/+$/, '');
+    const downloadUrl = `${baseApiUrl}/games/${gameIdentifier}/download`;
+    window.open(downloadUrl, '_blank', 'noopener,noreferrer');
   };
 
   const handleSubmitComment = async () => {
@@ -212,7 +267,7 @@ export default function GameDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <Loader className="w-8 h-8 animate-spin" />
       </div>
     );
@@ -220,12 +275,12 @@ export default function GameDetailPage() {
 
   if (!game) {
     return (
-      <div className="min-h-screen bg-white dark:bg-slate-950 flex items-center justify-center">
+      <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-black dark:text-white mb-4">Game Not Found</h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">The game you're looking for doesn't exist.</p>
+          <h1 className="text-3xl font-bold text-black mb-4">Game Not Found</h1>
+          <p className="text-gray-600 mb-6">The game you're looking for doesn't exist.</p>
           <Link href="/games">
-            <Button className="bg-black hover:bg-gray-800 text-white dark:bg-white dark:hover:bg-gray-200 dark:text-black">
+            <Button className="bg-black hover:bg-gray-800 text-white">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Games
             </Button>
@@ -234,6 +289,13 @@ export default function GameDetailPage() {
       </div>
     );
   }
+
+  const authorName =
+    game?.author ||
+    (typeof game?.createdBy === 'object' ? game?.createdBy?.username : null) ||
+    'Unknown Developer';
+  const hasPlayableFile = Boolean(game?.fileUrl);
+  const hasDownloadFile = Boolean(game?.downloadUrl || game?.fileUrl || game?.activeBuild);
 
   return (
     <div className="min-h-screen bg-white">
@@ -268,9 +330,10 @@ export default function GameDetailPage() {
             <div className="aspect-video rounded-lg overflow-hidden bg-gray-100">
               {!showPlayer ? (
                 <img
-                  src={game?.thumbnail}
+                  src={heroThumbnailSrc}
                   alt={game?.title}
                   className="w-full h-full object-cover block max-w-full"
+                  onError={() => setHeroThumbnailSrc(DEFAULT_GAME_THUMBNAIL)}
                 />
               ) : (
                 <div className="w-full h-full bg-gray-200 flex items-center justify-center">
@@ -285,7 +348,7 @@ export default function GameDetailPage() {
             {/* Title & Developer */}
             <div className="mb-8">
               <h1 className="text-2xl font-semibold text-black mb-3">{game?.title}</h1>
-              <p className="text-sm text-gray-600 mb-4">by {game?.author}</p>
+              <p className="text-sm text-gray-600 mb-4">by {authorName}</p>
 
               {/* Game Format Badge */}
               <div className="mb-4 flex items-center gap-2">
@@ -320,7 +383,7 @@ export default function GameDetailPage() {
             <div className="space-y-3">
               <Button
                 onClick={handlePlayGame}
-                disabled={!game?.fileUrl}
+                disabled={!hasPlayableFile}
                 className="w-full bg-black hover:bg-gray-800 text-white font-semibold py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Play className="w-4 h-4 mr-2" />
@@ -328,7 +391,7 @@ export default function GameDetailPage() {
               </Button>
               <Button
                 onClick={handleDownloadGame}
-                disabled={!game?.fileUrl}
+                disabled={!hasDownloadFile}
                 className="w-full border border-gray-300 bg-white hover:bg-gray-50 text-black font-semibold py-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -483,37 +546,55 @@ export default function GameDetailPage() {
           <div>
             <h2 className="text-xl font-semibold text-black mb-4">Similar games</h2>
             <div className="space-y-4">
-              {relatedGames.map((relatedGame) => (
-                <Link
-                  key={relatedGame.id}
-                  href={`/game/${relatedGame.id}`}
-                  className="flex gap-3 p-3 rounded-md hover:bg-gray-50 transition-colors group"
-                >
-                  <div className="flex-shrink-0 w-16 h-16 rounded bg-gray-100 overflow-hidden">
-                    <img
-                      src={relatedGame.thumbnail}
-                      alt={relatedGame.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-semibold text-black truncate group-hover:text-gray-700">
-                      {relatedGame.title}
-                    </h3>
-                    <p className="text-xs text-gray-500 truncate">{relatedGame.author}</p>
-                    <div className="flex gap-1 mt-2 flex-wrap">
-                      {relatedGame.tags.slice(0, 2).map((tag: string) => (
-                        <span
-                          key={tag}
-                          className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+              {relatedGames.map((relatedGame) => {
+                const relatedGameId = relatedGame.id || relatedGame._id;
+                if (!relatedGameId) {
+                  return null;
+                }
+
+                const relatedAuthor =
+                  relatedGame.author ||
+                  (typeof relatedGame.createdBy === 'object' ? relatedGame.createdBy?.username : null) ||
+                  'Unknown Developer';
+
+                return (
+                  <Link
+                    key={relatedGameId}
+                    href={`/game/${relatedGameId}`}
+                    className="flex gap-3 p-3 rounded-md hover:bg-gray-50 transition-colors group"
+                  >
+                    <div className="flex-shrink-0 w-16 h-16 rounded bg-gray-100 overflow-hidden">
+                      <img
+                        src={relatedGame.thumbnail || DEFAULT_GAME_THUMBNAIL}
+                        alt={relatedGame.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        onError={(event) => {
+                          const target = event.currentTarget;
+                          if (target.src !== DEFAULT_GAME_THUMBNAIL) {
+                            target.src = DEFAULT_GAME_THUMBNAIL;
+                          }
+                        }}
+                      />
                     </div>
-                  </div>
-                </Link>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-black truncate group-hover:text-gray-700">
+                        {relatedGame.title}
+                      </h3>
+                      <p className="text-xs text-gray-500 truncate">{relatedAuthor}</p>
+                      <div className="flex gap-1 mt-2 flex-wrap">
+                        {(relatedGame.tags || []).slice(0, 2).map((tag: string) => (
+                          <span
+                            key={tag}
+                            className="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>

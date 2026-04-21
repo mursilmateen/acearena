@@ -31,6 +31,10 @@ const gameSchema = new Schema<GameDocument>(
       type: String,
       default: null,
     },
+    downloadUrl: {
+      type: String,
+      default: null,
+    },
     gameFormat: {
       type: String,
       enum: ["html5", "webgl", "zip", "exe", "dmg", "apk", "nes", "snes", "other"],
@@ -45,6 +49,11 @@ const gameSchema = new Schema<GameDocument>(
       enum: ["nesjs", "snes9x", "dosbox", "none"],
       default: "none",
     },
+    activeBuild: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "GameBuild",
+      default: null,
+    } as any,
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

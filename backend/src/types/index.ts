@@ -25,10 +25,32 @@ export interface IGame {
   price: number;
   thumbnail?: string;
   fileUrl?: string;
+  downloadUrl?: string;
   gameFormat?: "html5" | "webgl" | "zip" | "exe" | "dmg" | "apk" | "nes" | "snes" | "other";
   isWebBased?: boolean;
   supportedEmulator?: "nesjs" | "snes9x" | "dosbox" | "none";
+  activeBuild?: string | null;
   createdBy: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+}
+
+export interface IGameBuild {
+  _id?: string;
+  game: string;
+  createdBy: string;
+  originalFileName: string;
+  status: "processing" | "ready" | "failed";
+  entryFile?: string | null;
+  playablePath?: string | null;
+  storagePath?: string | null;
+  archivePath?: string | null;
+  downloadPath?: string | null;
+  sizeBytes?: number;
+  fileCount?: number;
+  isActive?: boolean;
+  activatedAt?: Date | null;
+  errorMessage?: string | null;
   createdAt?: Date;
   updatedAt?: Date;
 }

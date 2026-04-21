@@ -1,8 +1,10 @@
-import express, { Application } from "express";
+import express, { Application, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import dotenv from "dotenv";
+import fs from "fs";
+import path from "path";
 import { connectDB, disconnectDB } from "./config/database";
 import { errorHandler } from "./middleware/errorHandler";
 
@@ -105,6 +107,98 @@ app.use(morgan("combined"));
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+const gameBuildsRoot = path.resolve(process.cwd(), "uploads", "game-builds");
+if (!fs.existsSync(gameBuildsRoot)) {
+  fs.mkdirSync(gameBuildsRoot, { recursive: true });
+}
+
+const gameFilesRoot = path.resolve(process.cwd(), "uploads", "game-files");
+if (!fs.existsSync(gameFilesRoot)) {
+  fs.mkdirSync(gameFilesRoot, { recursive: true });
+}
+
+const readLeadingBytes = (filePath: string, byteCount: number): Buffer | null => {
+  try {
+    const descriptor = fs.openSync(filePath, "r");
+    const chunk = Buffer.alloc(byteCount);
+    const bytesRead = fs.readSync(descriptor, chunk, 0, byteCount, 0);
+    fs.closeSync(descriptor);
+    return chunk.subarray(0, bytesRead);
+  } catch {
+    return null;
+  }
+};
+
+const setGameBuildAssetHeaders = (res: Response, filePath: string): void => {
+  const lowerFilePath = filePath.toLowerCase();
+
+  if (lowerFilePath.endsWith(".wasm")) {
+    res.setHeader("Content-Type", "application/wasm");
+  }
+
+  if (lowerFilePath.endsWith(".data") || lowerFilePath.endsWith(".pck")) {
+    res.setHeader("Content-Type", "application/octet-stream");
+  }
+
+  if (
+    lowerFilePath.endsWith(".js") ||
+    lowerFilePath.endsWith(".mjs") ||
+    lowerFilePath.endsWith(".loader.js") ||
+    lowerFilePath.endsWith(".framework.js")
+  ) {
+    res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+  }
+
+  if (lowerFilePath.endsWith(".unityweb")) {
+    const originalExtensionPath = lowerFilePath.slice(0, -".unityweb".length);
+
+    if (originalExtensionPath.endsWith(".wasm")) {
+      res.setHeader("Content-Type", "application/wasm");
+    } else if (
+      originalExtensionPath.endsWith(".js") ||
+      originalExtensionPath.endsWith(".loader.js") ||
+      originalExtensionPath.endsWith(".framework.js")
+    ) {
+      res.setHeader("Content-Type", "application/javascript; charset=utf-8");
+    } else {
+      res.setHeader("Content-Type", "application/octet-stream");
+    }
+
+    const headerBytes = readLeadingBytes(filePath, 2);
+    const looksLikeGzip = Boolean(headerBytes && headerBytes.length === 2 && headerBytes[0] === 0x1f && headerBytes[1] === 0x8b);
+    res.setHeader("Content-Encoding", looksLikeGzip ? "gzip" : "br");
+  }
+};
+
+app.use(
+  "/game-builds",
+  express.static(gameBuildsRoot, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      res.removeHeader("Content-Security-Policy");
+      res.removeHeader("X-Frame-Options");
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      setGameBuildAssetHeaders(res, filePath);
+      if (filePath.toLowerCase().endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-cache");
+      } else {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  })
+);
+
+app.use(
+  "/game-files",
+  express.static(gameFilesRoot, {
+    index: false,
+    setHeaders: (res) => {
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    },
+  })
+);
+
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
@@ -136,15 +230,56 @@ app.use(errorHandler);
 
 let server: ReturnType<typeof app.listen> | null = null;
 
+const listenOnPort = (port: number): Promise<ReturnType<typeof app.listen>> =>
+  new Promise((resolve, reject) => {
+    const candidateServer = app.listen(port, "0.0.0.0");
+
+    const handleListening = () => {
+      candidateServer.removeListener("error", handleError);
+      resolve(candidateServer);
+    };
+
+    const handleError = (error: NodeJS.ErrnoException) => {
+      candidateServer.removeListener("listening", handleListening);
+      reject(error);
+    };
+
+    candidateServer.once("listening", handleListening);
+    candidateServer.once("error", handleError);
+  });
+
 // Start server
 const startServer = async () => {
   try {
     await connectDB();
-    server = app.listen(PORT, "0.0.0.0", () => {
-      console.log(`✅ Server running on port ${PORT}`);
-      console.log(`📍 Environment: ${NODE_ENV}`);
-      console.log(`🌐 CORS enabled for: ${Array.from(allowedOrigins).join(", ")}`);
-    });
+
+    const maxAttempts = isProduction ? 1 : 20;
+    let selectedPort = PORT;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        server = await listenOnPort(selectedPort);
+        break;
+      } catch (error) {
+        const listenError = error as NodeJS.ErrnoException;
+
+        if (!isProduction && listenError.code === "EADDRINUSE" && attempt < maxAttempts) {
+          console.warn(`⚠️ Port ${selectedPort} is already in use. Retrying on ${selectedPort + 1}...`);
+          selectedPort += 1;
+          continue;
+        }
+
+        throw error;
+      }
+    }
+
+    if (!server) {
+      throw new Error(`No available port found in range ${PORT}-${selectedPort}.`);
+    }
+
+    console.log(`✅ Server running on port ${selectedPort}`);
+    console.log(`📍 Environment: ${NODE_ENV}`);
+    console.log(`🌐 CORS enabled for: ${Array.from(allowedOrigins).join(", ")}`);
   } catch (error) {
     console.error("❌ Failed to start server", error);
     process.exit(1);
