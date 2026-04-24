@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAppStore } from '@/store/appStore';
 import { Menu, X } from 'lucide-react';
+import { GAME_UPLOAD_COMING_SOON } from '@/lib/launchConfig';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -29,7 +30,11 @@ export default function DashboardLayout({
         { id: 'assets', label: 'My Assets' },
         { id: 'jams', label: 'My Jams' },
         { id: 'collections', label: 'My Collections', action: () => router.push('/dashboard/collections') },
-        { id: 'upload-game', label: 'Upload Game', action: () => router.push('/upload') },
+        {
+          id: 'upload-game',
+          label: GAME_UPLOAD_COMING_SOON ? 'Upload Game (Soon)' : 'Upload Game',
+          action: () => router.push('/upload'),
+        },
         { id: 'upload-asset', label: 'Upload Asset', action: () => router.push('/upload-asset') },
         { id: 'settings', label: 'Settings' },
       ]

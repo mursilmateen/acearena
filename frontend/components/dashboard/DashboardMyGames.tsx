@@ -73,10 +73,10 @@ export default function DashboardMyGames() {
 
         <div className="bg-white p-8 rounded-lg border border-gray-200 text-center">
           <p className="text-gray-600 mb-4">
-            Switch to a Developer account to upload games
+            Switch to a Developer account to manage games and upload assets.
           </p>
           <button className="px-4 py-2 bg-black text-white rounded-md hover:bg-gray-800 transition-all duration-200">
-            Start Uploading Games
+            Game Uploads Coming Soon
           </button>
         </div>
       </div>
@@ -105,7 +105,7 @@ export default function DashboardMyGames() {
           My Games
         </h1>
         <p className="text-gray-600">
-          Manage your uploaded games
+          Manage your uploaded games. New game submissions are temporarily paused.
         </p>
       </div>
 
@@ -170,7 +170,7 @@ export default function DashboardMyGames() {
         <div className="bg-white p-8 rounded-lg border border-gray-200 text-center">
           <p className="text-gray-600 mb-4">No games uploaded yet</p>
           <button className="px-4 py-2 bg-black text-white rounded hover:bg-gray-800 transition-colors">
-            Upload Your First Game
+            Game Uploads Coming Soon
           </button>
         </div>
       )}

@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { useGames } from '@/hooks/useBackendApi';
 import { canPlayInBrowser, detectGameFormat, GameFormat } from '@/lib/gameFormatUtils';
 import apiClient from '@/lib/api';
+import { filterLiveLaunchGames, isLiveLaunchGame } from '@/lib/launchConfig';
 
 const DEFAULT_GAME_THUMBNAIL = '/default-game-thumbnail.svg';
 
@@ -47,6 +48,7 @@ export default function GameDetailPage() {
   const [submittingRating, setSubmittingRating] = useState(false);
   const [commentError, setCommentError] = useState('');
   const [heroThumbnailSrc, setHeroThumbnailSrc] = useState(DEFAULT_GAME_THUMBNAIL);
+  const [isComingSoonGame, setIsComingSoonGame] = useState(false);
   const { addRecentGameView, user, isAuthenticated } = useAppStore();
   const { getGameById, getGames } = useGames();
 
@@ -60,6 +62,14 @@ export default function GameDetailPage() {
           return;
         }
 
+        if (!isLiveLaunchGame(gameData)) {
+          setGame(null);
+          setIsComingSoonGame(Boolean(gameData));
+          setLoading(false);
+          return;
+        }
+
+        setIsComingSoonGame(false);
         setGame(gameData);
         setHeroThumbnailSrc(gameData?.thumbnail || DEFAULT_GAME_THUMBNAIL);
         addRecentGameView(gameId);
@@ -80,7 +90,7 @@ export default function GameDetailPage() {
               }
 
               setRelatedGames(
-                allGames
+                filterLiveLaunchGames(allGames)
                   .filter((g: any) => (g._id || g.id) !== gameId)
                   .slice(0, 5)
               );
@@ -143,10 +153,11 @@ export default function GameDetailPage() {
         console.error('Failed to fetch game:', error);
         if (isMounted) {
           setGame(null);
+          setIsComingSoonGame(false);
         }
       } finally {
         if (isMounted) {
-        setLoading(false);
+          setLoading(false);
         }
       }
     };
@@ -269,6 +280,25 @@ export default function GameDetailPage() {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <Loader className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (isComingSoonGame) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+        <div className="max-w-xl text-center">
+          <h1 className="text-3xl font-bold text-black mb-4">Coming Soon</h1>
+          <p className="text-gray-600 mb-6">
+            This game is not part of the current live launch lineup yet.
+          </p>
+          <Link href="/games">
+            <Button className="bg-black hover:bg-gray-800 text-white">
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back to Live Games
+            </Button>
+          </Link>
+        </div>
       </div>
     );
   }

@@ -65,10 +65,48 @@ cd frontend
 npm install
 ```
 
-3. Create `.env.local` file (already provided with defaults):
-```env
-NEXT_PUBLIC_API_URL=http://localhost:3001/api
+3. Create `.env.local` from `.env.example`:
+```bash
+cp .env.example .env.local
 ```
+
+Then set values as needed:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:8080/api
+NEXT_PUBLIC_LAUNCH_MODE_ENABLED=true
+NEXT_PUBLIC_GAME_UPLOAD_COMING_SOON=true
+NEXT_PUBLIC_LIVE_GAME_TITLES=Falling Crown,Space Run
+```
+
+Launch variable behavior:
+- `NEXT_PUBLIC_LAUNCH_MODE_ENABLED`: When `true`, only the configured live titles are shown in public game listings.
+- `NEXT_PUBLIC_GAME_UPLOAD_COMING_SOON`: When `true`, game upload entry points show a coming soon state.
+- `NEXT_PUBLIC_LIVE_GAME_TITLES`: Comma-separated list of live game titles for launch mode filtering.
+
+## 🌍 Deployment Environment Variables
+
+Set these variables in your frontend hosting dashboard (Vercel or Railway) for `Production` and `Preview` environments.
+
+### Recommended Production Values
+```env
+NEXT_PUBLIC_API_URL=https://api.acearena.com
+NEXT_PUBLIC_LAUNCH_MODE_ENABLED=true
+NEXT_PUBLIC_GAME_UPLOAD_COMING_SOON=true
+NEXT_PUBLIC_LIVE_GAME_TITLES=Falling Crown,Space Run
+```
+
+### If Using Railway Backend Domain Directly
+```env
+NEXT_PUBLIC_API_URL=https://backend-production-1528.up.railway.app/api
+NEXT_PUBLIC_LAUNCH_MODE_ENABLED=true
+NEXT_PUBLIC_GAME_UPLOAD_COMING_SOON=true
+NEXT_PUBLIC_LIVE_GAME_TITLES=Falling Crown,Space Run
+```
+
+Notes:
+- `NEXT_PUBLIC_API_URL` can be provided with or without `/api`; the frontend normalizes it automatically.
+- Launch mode changes require rebuild/redeploy because these are `NEXT_PUBLIC_` variables.
+- To reopen full game listings and game uploads later, set both launch booleans to `false`.
 
 ## 🚀 Running the Project
 

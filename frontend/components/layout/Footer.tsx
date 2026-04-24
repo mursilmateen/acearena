@@ -2,6 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { GAME_UPLOAD_COMING_SOON } from '@/lib/launchConfig';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -57,7 +58,12 @@ export default function Footer() {
             <ul className="space-y-2 text-xs text-gray-600">
               <li>
                 <Link href="/upload" className="hover:text-black transition-colors">
-                  Upload Game
+                  {GAME_UPLOAD_COMING_SOON ? 'Upload Game (Coming Soon)' : 'Upload Game'}
+                </Link>
+              </li>
+              <li>
+                <Link href="/upload-asset" className="hover:text-black transition-colors">
+                  Upload Asset Package
                 </Link>
               </li>
               <li>

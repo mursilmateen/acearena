@@ -8,6 +8,7 @@ import GameCard from '@/components/shared/GameCard';
 import { GameGridSkeleton } from '@/components/shared/Skeleton';
 import { useGames } from '@/hooks/useBackendApi';
 import type { Game } from '@/types';
+import { filterLiveLaunchGames } from '@/lib/launchConfig';
 
 export default function GamesPageClient() {
   const searchParams = useSearchParams();
@@ -30,7 +31,8 @@ export default function GamesPageClient() {
         }
 
         const data = await getGames(filters);
-        setGames(Array.isArray(data) ? (data as Game[]) : []);
+        const fetchedGames = Array.isArray(data) ? (data as Game[]) : [];
+        setGames(filterLiveLaunchGames(fetchedGames));
       } catch (error) {
         console.error('Failed to fetch games:', error);
       }

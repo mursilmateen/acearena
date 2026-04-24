@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/useToast';
 import UpgradeModal from '@/components/modals/UpgradeModal';
 import { detectGameFormat, getGameFormatInfo, canPlayInBrowser, GameFormat } from '@/lib/gameFormatUtils';
 import apiClient from '@/lib/api';
+import { GAME_UPLOAD_COMING_SOON } from '@/lib/launchConfig';
 
 type ApiErrorDetail = {
   field?: string;
@@ -187,6 +188,43 @@ export default function UploadPage() {
         </div>
         <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} />
       </>
+    );
+  }
+
+  if (GAME_UPLOAD_COMING_SOON) {
+    return (
+      <div className="min-h-screen bg-white py-12">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Card className="p-8 border-l-4 border-amber-500 bg-amber-50">
+            <div className="flex items-start gap-4">
+              <Info className="w-6 h-6 text-amber-700 flex-shrink-0 mt-1" />
+              <div>
+                <h2 className="text-2xl font-bold text-black mb-2">
+                  Game Uploads Are Coming Soon
+                </h2>
+                <p className="text-gray-700 mb-6">
+                  For this launch phase, only Falling Crown and Space Run are live. Developers can continue uploading assets now, and game uploads will reopen in a later update.
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  <Button
+                    onClick={() => router.push('/upload-asset')}
+                    className="bg-black text-white hover:bg-gray-800"
+                  >
+                    Upload Asset Package
+                  </Button>
+                  <Button
+                    onClick={() => router.push('/dashboard?section=assets')}
+                    variant="outline"
+                    className="border-gray-300 bg-white text-black hover:bg-gray-100"
+                  >
+                    Go to Dashboard
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
     );
   }
 

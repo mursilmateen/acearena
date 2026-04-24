@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Calendar, Users, ArrowRight } from 'lucide-react';
 import { useGames } from '@/hooks/useBackendApi';
 import { useGameJams } from '@/hooks/useBackendApi';
+import { filterLiveLaunchGames } from '@/lib/launchConfig';
 
 function HomePageContent() {
   const searchParams = useSearchParams();
@@ -54,7 +55,7 @@ function HomePageContent() {
           );
         }
 
-        setFilteredGames(games);
+        setFilteredGames(filterLiveLaunchGames(games));
 
         // Fetch jams
         const jamsData = await getAllGameJams();

@@ -173,6 +173,26 @@ Error responses:
 | `FRONTEND_URLS` | Comma-separated frontend URLs for CORS | `https://acearena.com,https://www.acearena.com` |
 | `CORS_ORIGIN` | Legacy single-origin CORS variable (still supported) | `http://localhost:3000` |
 
+## Production Deployment Variables (Railway)
+
+Set these in Railway for your backend service:
+
+```env
+NODE_ENV=production
+MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/acearedb?retryWrites=true&w=majority
+JWT_SECRET=<strong-random-secret-at-least-32-chars>
+JWT_EXPIRY=15m
+CLOUDINARY_CLOUD_NAME=<cloudinary-cloud-name>
+CLOUDINARY_API_KEY=<cloudinary-api-key>
+CLOUDINARY_API_SECRET=<cloudinary-api-secret>
+FRONTEND_URLS=https://acearena.com,https://www.acearena.com,https://acearena-frontend.vercel.app
+```
+
+Notes:
+- `PORT` is usually injected by Railway automatically.
+- Keep `FRONTEND_URLS` aligned with all active frontend domains to avoid CORS failures.
+- After env updates, redeploy backend and verify `GET /api/health` returns success.
+
 ## Security Features
 
 - **Helmet:** Sets various HTTP headers for security

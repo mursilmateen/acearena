@@ -53,6 +53,13 @@ Legacy option (also supported):
 CORS_ORIGIN=http://localhost:3000
 ```
 
+For production, prefer comma-separated frontend domains:
+```env
+FRONTEND_URLS=https://acearena.com,https://www.acearena.com,https://acearena-frontend.vercel.app
+```
+
+If you switch domains later, update this value and redeploy the backend.
+
 ### Step 6: Run the Server
 
 ```bash
@@ -226,6 +233,22 @@ curl -X POST http://localhost:5000/api/auth/register \
    - Set up production environment variables
    - Deploy to Heroku, Railway, or Vercel
    - Set up CI/CD pipeline
+
+### Production Deployment Quick Config (Railway)
+
+Use this minimum backend env set:
+```env
+NODE_ENV=production
+MONGO_URI=mongodb+srv://<user>:<password>@<cluster>.mongodb.net/acearedb?retryWrites=true&w=majority
+JWT_SECRET=<strong-random-secret-at-least-32-chars>
+JWT_EXPIRY=15m
+CLOUDINARY_CLOUD_NAME=<cloudinary-cloud-name>
+CLOUDINARY_API_KEY=<cloudinary-api-key>
+CLOUDINARY_API_SECRET=<cloudinary-api-secret>
+FRONTEND_URLS=https://acearena.com,https://www.acearena.com,https://acearena-frontend.vercel.app
+```
+
+Then set frontend `NEXT_PUBLIC_API_URL` to your backend public URL (or API domain) and redeploy frontend.
 
 4. **Testing**
    - Add unit tests with Jest

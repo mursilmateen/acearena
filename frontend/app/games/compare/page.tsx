@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/appStore';
 import { useGames } from '@/hooks/useBackendApi';
 import ComparisonTable from '@/components/shared/ComparisonTable';
 import { Scale, ArrowLeft } from 'lucide-react';
+import { isLiveLaunchGame } from '@/lib/launchConfig';
 
 export default function ComparisonPage() {
   const router = useRouter();
@@ -21,7 +22,9 @@ export default function ComparisonPage() {
         const games = [];
         for (const gameId of comparisonGameIds) {
           const game = await getGameById(gameId);
-          if (game) games.push(game);
+          if (isLiveLaunchGame(game)) {
+            games.push(game);
+          }
         }
         setComparisonGames(games);
       } catch (error) {

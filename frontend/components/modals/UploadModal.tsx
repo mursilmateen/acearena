@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
 import { X, Gamepad2, Package } from 'lucide-react';
+import { GAME_UPLOAD_COMING_SOON } from '@/lib/launchConfig';
 
 interface UploadModalProps {
   isOpen: boolean;
@@ -13,6 +14,10 @@ interface UploadModalProps {
 export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const gameUploadTitle = GAME_UPLOAD_COMING_SOON ? 'Upload Game (Coming Soon)' : 'Upload Game';
+  const gameUploadDescription = GAME_UPLOAD_COMING_SOON
+    ? 'Game uploads are temporarily paused for this launch. We will reopen them in an upcoming update.'
+    : 'Publish a playable game build with metadata and thumbnail.';
 
   useEffect(() => {
     setMounted(true);
@@ -68,17 +73,26 @@ export default function UploadModal({ isOpen, onClose }: UploadModalProps) {
         <div className="p-6 space-y-4">
           <button
             onClick={() => goToUpload('/upload')}
-            className="w-full text-left p-5 rounded-xl border border-gray-200 hover:border-black hover:bg-gray-50 transition-all"
+            className={`w-full text-left p-5 rounded-xl border transition-all ${
+              GAME_UPLOAD_COMING_SOON
+                ? 'border-amber-300 bg-amber-50 hover:border-amber-400 hover:bg-amber-100'
+                : 'border-gray-200 hover:border-black hover:bg-gray-50'
+            }`}
           >
             <div className="flex items-start gap-4">
               <div className="w-11 h-11 rounded-lg bg-black text-white flex items-center justify-center">
                 <Gamepad2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-slate-900">Upload Game</h3>
+                <h3 className="text-base font-semibold text-slate-900">{gameUploadTitle}</h3>
                 <p className="text-sm text-slate-600 mt-1">
-                  Publish a playable game build with metadata and thumbnail.
+                  {gameUploadDescription}
                 </p>
+                {GAME_UPLOAD_COMING_SOON && (
+                  <span className="mt-2 inline-flex rounded-full bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-900">
+                    Temporary launch restriction
+                  </span>
+                )}
               </div>
             </div>
           </button>

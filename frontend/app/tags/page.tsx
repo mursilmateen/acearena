@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Tag } from 'lucide-react';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import { useGames } from '@/hooks/useBackendApi';
+import { filterLiveLaunchGames } from '@/lib/launchConfig';
 
 export default function TagsPage() {
   const router = useRouter();
@@ -15,7 +16,7 @@ export default function TagsPage() {
   useEffect(() => {
     const fetchGamesAndExtractTags = async () => {
       try {
-        const games = await getGames({});
+        const games = filterLiveLaunchGames(await getGames({}));
         const tagMap = new Map<string, number>();
         
         games.forEach((game: any) => {
